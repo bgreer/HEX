@@ -1,0 +1,3 @@
+
+Generic class for handling packets sent over serial.
+Contains packet size, data size, tagging, and checksum.

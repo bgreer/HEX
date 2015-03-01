@@ -1,0 +1,5 @@
+
+Library for serial communication on main board.
+Uses threading to provide a manager for all communicaitons.
+Allows other threads to submit packets for sending.
+Allows other threads to ask for packets tagged in a specific way.
