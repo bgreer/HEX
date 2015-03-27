@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <iostream>
 #include <string.h>
 
@@ -33,6 +34,7 @@ public:
 		delete buffer;
 	}
 	char getTag ();
+	void setTag (char newtag);
 	bool verify();
 	char computeChecksum ();
 

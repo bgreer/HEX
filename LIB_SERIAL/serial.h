@@ -6,6 +6,9 @@
 #include <unistd.h>
 #include <termios.h>
 #include <fcntl.h>
+#include <sys/select.h>
+#include <sys/ioctl.h>
+#include <linux/serial.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -13,7 +16,7 @@
 #include <sys/time.h>
 #include <ctime>
 #include <thread>
-#include "/home/ubuntu/PROJECTS/HEX/LIB_PACKET/packet.h"
+#include "/home/bgreer/PROJECTS/HEX/LIB_PACKET/packet.h"
 
 #define INPUT_BUFFER_SIZE 16384
 
@@ -23,7 +26,7 @@ using namespace std;
 class serial
 {
 public:
-	bool initialized, listening;
+	bool initialized, listening, debug;
 	int fd;
 	thread listener;
 	// send queue
@@ -37,7 +40,8 @@ public:
 	vector<packet*> recv_queue_packets;
 
 	serial();
-	void init(const char *portname);
+	void init(const char *portname, bool debugflag = false);
+	void init_old(const char *portname, bool debugflag = false);
 	void close();
 	void send(char *buffer, int size, bool *ptr = NULL);
 	packet* recv(char tag, bool blocking);

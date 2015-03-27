@@ -17,6 +17,7 @@ void listener_loop (serial *ser)
 	currtime = (tv.tv_sec-1422700000) + tv.tv_usec*1e-6;
 	lasttime = currtime;
 
+
 	while (ser->listening)
 	{
 		while (ser->recv_queue_access) {}
@@ -58,6 +59,7 @@ void listener_loop (serial *ser)
 			in = read(ser->fd, input, INPUT_BUFFER_SIZE);
 			for (ii=0; ii<in; ii++)
 			{
+				if (ser->debug) cout << input[ii] << flush;
 				// look for packet start signal
 				if (input[ii]==0x11) start++;
 				else start = max(0,start-1);
@@ -113,7 +115,39 @@ serial::serial ()
 }
 
 
-void serial::init (const char *portname)
+void serial::init (const char *portname, bool debugflag)
+{
+	int r;
+	struct termios options;
+	struct serial_struct kernel_serial_settings;
+
+	fd = open(portname, O_RDWR);
+	if (fd < 0)
+	{
+		printf("HARD ERROR: %d opening %s: %s", errno, portname, strerror (errno));
+		exit(-1);
+	}
+	if (tcgetattr(fd, &options) < 0) printf("unable to get serial parms\n");
+	cfmakeraw(&options);
+	if (cfsetspeed(&options, 115200) < 0) printf("error in cfsetspeed\n");
+	if (tcsetattr(fd, TCSANOW, &options) < 0) printf("unable to set baud rate\n");
+	r = ioctl(fd, TIOCGSERIAL, &kernel_serial_settings);
+	if (r >= 0)
+	{
+		kernel_serial_settings.flags |= ASYNC_LOW_LATENCY;
+		r = ioctl(fd, TIOCSSERIAL, &kernel_serial_settings);
+		if (r >= 0) printf("set linux low latency mode\n");
+	}
+	send_queue = 0;
+	send_queue_access = false;
+	recv_queue_access = false;
+	debug = debugflag;
+	listening = true;
+	listener = thread(listener_loop, this);
+	initialized = true;
+}
+
+void serial::init_old (const char *portname, bool debugflag)
 {
 	fd = open(portname, O_RDWR | O_NOCTTY | O_SYNC);
 	if (fd < 0)
@@ -121,13 +155,15 @@ void serial::init (const char *portname)
 		printf("HARD ERROR: %d opening %s: %s", errno, portname, strerror (errno));
 		exit(-1);
 	}
-	set_interface_attribs (B230400, 0);
+//	set_interface_attribs (B230400, 0);
+	set_interface_attribs (B115200, 0);
 	set_blocking (0);
 
 	send_queue = 0;
 	send_queue_access = false;
 	recv_queue_access = false;
 
+	debug = debugflag;
 	listening = true;
 	listener = thread(listener_loop, this);
 	initialized = true;
@@ -185,7 +221,7 @@ packet* serial::recv (char tag, bool blocking)
         memset (&tty, 0, sizeof tty);
         if (tcgetattr (fd, &tty) != 0)
         {
-                printf ("error from tcgetattr", errno);
+                printf ("error %d from tcgetattr", errno);
                 return -1;
         }
 
@@ -200,7 +236,7 @@ packet* serial::recv (char tag, bool blocking)
                                         // no canonical processing
         tty.c_oflag = 0;                // no remapping, no delays
         tty.c_cc[VMIN]  = 0;            // read doesn't block
-        tty.c_cc[VTIME] = 5;            // 0.5 seconds read timeout
+        tty.c_cc[VTIME] = 0;            // 0.5 seconds read timeout
 
         tty.c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
 
@@ -230,7 +266,7 @@ packet* serial::recv (char tag, bool blocking)
         }
 
         tty.c_cc[VMIN]  = should_block ? 1 : 0;
-        tty.c_cc[VTIME] = 5;            	// 0.5 seconds read timeout
+        tty.c_cc[VTIME] = 0;            	// 0.5 seconds read timeout
 
         if (tcsetattr (fd, TCSANOW, &tty) != 0)
                 printf ("error %d setting term attributes", errno);

@@ -1,4 +1,5 @@
-#include "/home/ubuntu/PROJECTS/HEX/LIB_PACKET/packet.h"
+//#include "/home/ubuntu/PROJECTS/HEX/LIB_PACKET/packet.h"
+#include "packet.h"
 
 packet::packet (int datasize, char tag, int nearest)
 {
@@ -12,7 +13,8 @@ packet::packet (int datasize, char tag, int nearest)
 		packet_size = (int)((data_size+PACKET_HEADER_SIZE)/nearest + 1)*nearest;
 		padding = packet_size - (data_size+PACKET_HEADER_SIZE);
 	}
-	buffer = new char [packet_size];
+	buffer = (char*) malloc(packet_size*sizeof(char));
+//	buffer = new char [packet_size];
 	memset(buffer, 0x00, sizeof(char) * packet_size);
 	memset(buffer, 0x11, 3 * sizeof(char));
 	memcpy(buffer+3, &packet_size, sizeof(int));
@@ -24,6 +26,11 @@ packet::packet (int datasize, char tag, int nearest)
 char packet::getTag ()
 {
 	return buffer[PACKET_HEADER_TAG];
+}
+
+void packet::setTag (char newtag)
+{
+	buffer[PACKET_HEADER_TAG] = newtag;
 }
 
 bool packet::verify()
