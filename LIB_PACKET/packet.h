@@ -24,19 +24,20 @@ class packet
 {
 public:
 	int data_size, packet_size, padding;
-	char *buffer; // stores everything
+	unsigned char *buffer; // stores everything
 
 	// CONSTRUCTOR
-	packet (int datasize, char tag, int nearest=0);
+	packet (int datasize, unsigned char tag, int nearest=0);
 
 	~packet ()
 	{
-		delete buffer;
+		delete [] buffer;
 	}
-	char getTag ();
-	void setTag (char newtag);
+	unsigned char getTag ();
+	void setTag (unsigned char newtag);
 	bool verify();
-	char computeChecksum ();
+	unsigned char computeChecksum ();
+	void setChecksum ();
 
 	/*
 	char &operator[] (int ind)

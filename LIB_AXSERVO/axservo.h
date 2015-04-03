@@ -109,7 +109,7 @@ public:
 		val = ax12GetRegister(id,AX_RETURN_DELAY_TIME,1);
 		return val*2;
 	}
-	int setReturnDelay (int usec)
+	void setReturnDelay (int usec)
 	{
 		int val;
 		val = usec/2;
