@@ -1,0 +1,16 @@
+
+Contains an IK solver for the legs
+Allows for a few modes of operation
+1 - specify xyz for individual leg
+2 - specify parameters for action
+  -- standing (height)
+	-- walking (speed)
+	-- turning (speed)
+
+This library should be able to produce an array of servo angles to be sent on to someone else
+Library also assumes remapped servo ids:
+         back
+17 16 15 ---- 06 07 08
+14 13 12 ---- 03 04 05
+11 10 09 ---- 00 01 02
+          top
