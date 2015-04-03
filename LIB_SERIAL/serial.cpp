@@ -5,14 +5,14 @@ void listener_loop (serial *ser)
 	int ii, size, in, start;
 	int psize, dsize, ind;
 	bool *ptr, loading;
-	char *buff, *input, tag;
+	unsigned char *buff, *input, tag;
 	float lasttime, currtime;
 	struct timeval tv;
 	packet *currpacket;
 
 	start = 0;
 	loading = false;
-	input = new char [INPUT_BUFFER_SIZE];
+	input = new unsigned char [INPUT_BUFFER_SIZE];
 	gettimeofday(&tv, NULL);
 	currtime = (tv.tv_sec-1422700000) + tv.tv_usec*1e-6;
 	lasttime = currtime;
@@ -34,19 +34,17 @@ void listener_loop (serial *ser)
 		}
 		ser->recv_queue_access = false;
 		// check for things to send
-		if (ser->send_queue)
+		if (ser->send_queue_packets.size() > 0)
 		{
 			while(ser->send_queue_access) {};
 			ser->send_queue_access = true;
-			size = ser->send_queue_sizes[0];
-			buff = ser->send_queue_buffers[0];
+			size = ser->send_queue_packets[0]->packet_size;
+			buff = ser->send_queue_packets[0]->buffer;
 			ptr = ser->send_queue_confirm[0];
-			ser->send_queue_buffers.erase(ser->send_queue_buffers.begin());
-			ser->send_queue_sizes.erase(ser->send_queue_sizes.begin());
+			ser->send_queue_packets.erase(ser->send_queue_packets.begin());
 			ser->send_queue_confirm.erase(ser->send_queue_confirm.begin());
-			ser->send_queue--;
-			ser->send_queue_access = false;
 			write(ser->fd, buff, size);
+			ser->send_queue_access = false;
 			if (ptr != NULL) *ptr = true;
 		}
 
@@ -76,7 +74,7 @@ void listener_loop (serial *ser)
 					{
 						memcpy(&psize, input+ii+PACKET_HEADER_PACKET_SIZE-2, sizeof(int));
 						memcpy(&dsize, input+ii+PACKET_HEADER_DATA_SIZE-2, sizeof(int));
-						memcpy(&tag, input+ii+PACKET_HEADER_TAG-2, sizeof(char));
+						memcpy(&tag, input+ii+PACKET_HEADER_TAG-2, sizeof(unsigned char));
 						ii += PACKET_HEADER_SIZE-3;
 						currpacket = new packet(dsize, tag, psize);
 						loading = true;
@@ -138,7 +136,6 @@ void serial::init (const char *portname, bool debugflag)
 		r = ioctl(fd, TIOCSSERIAL, &kernel_serial_settings);
 		if (r >= 0) printf("set linux low latency mode\n");
 	}
-	send_queue = 0;
 	send_queue_access = false;
 	recv_queue_access = false;
 	debug = debugflag;
@@ -159,7 +156,6 @@ void serial::init_old (const char *portname, bool debugflag)
 	set_interface_attribs (B115200, 0);
 	set_blocking (0);
 
-	send_queue = 0;
 	send_queue_access = false;
 	recv_queue_access = false;
 
@@ -175,22 +171,36 @@ void serial::close ()
 	listener.join();
 }
 
-void serial::send (char *buffer, int size, bool *ptr)
+void serial::send (packet *pack, bool blocking)
 {
+	bool sent, sent_local;
 	while (send_queue_access) {};
 	send_queue_access = true;
-	send_queue_buffers.push_back(buffer);
-	send_queue_sizes.push_back(size);
-	send_queue_confirm.push_back(ptr);
-	send_queue++;
+	pack->setChecksum();
+	send_queue_packets.push_back(pack);
+	sent = false;
+	send_queue_confirm.push_back(&sent);
 	send_queue_access = false;
+
+	if (blocking)
+	{
+		sent_local = false;
+		while (!sent_local)
+		{
+			usleep(100);
+			while (send_queue_access) {};
+			send_queue_access = true;
+			sent_local = sent;
+			send_queue_access = false;
+		}
+	}
 }
 
-packet* serial::recv (char tag, bool blocking)
+packet* serial::recv (unsigned char tag, bool blocking)
 {
 	int ii, ind;
 	bool found = false;
-	packet *p;
+	packet *p = NULL;
 
 	do
 	{

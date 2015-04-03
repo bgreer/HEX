@@ -31,9 +31,7 @@ public:
 	thread listener;
 	// send queue
 	bool send_queue_access;
-	int send_queue;
-	vector<char*> send_queue_buffers; // do not deallocate pointers!
-	vector<int> send_queue_sizes;
+	vector<packet*> send_queue_packets;
 	vector<bool*> send_queue_confirm;
 	// recv queue
 	bool recv_queue_access;
@@ -43,8 +41,8 @@ public:
 	void init(const char *portname, bool debugflag = false);
 	void init_old(const char *portname, bool debugflag = false);
 	void close();
-	void send(char *buffer, int size, bool *ptr = NULL);
-	packet* recv(char tag, bool blocking);
+	void send(packet *pack, bool blocking = false);
+	packet* recv(unsigned char tag, bool blocking);
 	int set_interface_attribs (int speed, int parity);
 	void set_blocking (int should_block);
 };
