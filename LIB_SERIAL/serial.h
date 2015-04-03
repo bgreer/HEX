@@ -16,6 +16,7 @@
 #include <sys/time.h>
 #include <ctime>
 #include <thread>
+#include <mutex>
 #include "/home/bgreer/PROJECTS/HEX/LIB_PACKET/packet.h"
 
 #define INPUT_BUFFER_SIZE 16384
@@ -30,11 +31,11 @@ public:
 	int fd;
 	thread listener;
 	// send queue
-	bool send_queue_access;
+	mutex send_queue_mutex;
 	vector<packet*> send_queue_packets;
 	vector<bool*> send_queue_confirm;
 	// recv queue
-	bool recv_queue_access;
+	mutex recv_queue_mutex;
 	vector<packet*> recv_queue_packets;
 
 	serial();

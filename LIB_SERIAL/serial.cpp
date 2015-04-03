@@ -8,6 +8,7 @@ void listener_loop (serial *ser)
 	unsigned char *buff, *input, tag;
 	float lasttime, currtime;
 	struct timeval tv;
+	size_t ret;
 	packet *currpacket;
 
 	start = 0;
@@ -20,8 +21,7 @@ void listener_loop (serial *ser)
 
 	while (ser->listening)
 	{
-		while (ser->recv_queue_access) {}
-		ser->recv_queue_access = true;
+		ser->recv_queue_mutex.lock();
 		// delete some if we have too many
 		if (ser->recv_queue_packets.size() > 64)
 		{
@@ -32,19 +32,18 @@ void listener_loop (serial *ser)
 				ser->recv_queue_packets.erase(ser->recv_queue_packets.begin());
 			}
 		}
-		ser->recv_queue_access = false;
+		ser->recv_queue_mutex.unlock();
 		// check for things to send
 		if (ser->send_queue_packets.size() > 0)
 		{
-			while(ser->send_queue_access) {};
-			ser->send_queue_access = true;
+			ser->send_queue_mutex.lock();
 			size = ser->send_queue_packets[0]->packet_size;
 			buff = ser->send_queue_packets[0]->buffer;
 			ptr = ser->send_queue_confirm[0];
 			ser->send_queue_packets.erase(ser->send_queue_packets.begin());
 			ser->send_queue_confirm.erase(ser->send_queue_confirm.begin());
-			write(ser->fd, buff, size);
-			ser->send_queue_access = false;
+			ret = write(ser->fd, buff, size);
+			ser->send_queue_mutex.unlock();
 			if (ptr != NULL) *ptr = true;
 		}
 
@@ -91,10 +90,9 @@ void listener_loop (serial *ser)
 					{
 						loading = false;
 						// add to recv queue
-						while (ser->recv_queue_access) {};
-						ser->recv_queue_access = true;
+						ser->recv_queue_mutex.lock();
 						ser->recv_queue_packets.push_back(currpacket);
-						ser->recv_queue_access = false;
+						ser->recv_queue_mutex.unlock();
 					}
 				}
 			}
@@ -136,8 +134,6 @@ void serial::init (const char *portname, bool debugflag)
 		r = ioctl(fd, TIOCSSERIAL, &kernel_serial_settings);
 		if (r >= 0) printf("set linux low latency mode\n");
 	}
-	send_queue_access = false;
-	recv_queue_access = false;
 	debug = debugflag;
 	listening = true;
 	listener = thread(listener_loop, this);
@@ -156,9 +152,6 @@ void serial::init_old (const char *portname, bool debugflag)
 	set_interface_attribs (B115200, 0);
 	set_blocking (0);
 
-	send_queue_access = false;
-	recv_queue_access = false;
-
 	debug = debugflag;
 	listening = true;
 	listener = thread(listener_loop, this);
@@ -174,13 +167,12 @@ void serial::close ()
 void serial::send (packet *pack, bool blocking)
 {
 	bool sent, sent_local;
-	while (send_queue_access) {};
-	send_queue_access = true;
+	send_queue_mutex.lock();
 	pack->setChecksum();
 	send_queue_packets.push_back(pack);
 	sent = false;
 	send_queue_confirm.push_back(&sent);
-	send_queue_access = false;
+	send_queue_mutex.unlock();
 
 	if (blocking)
 	{
@@ -188,10 +180,9 @@ void serial::send (packet *pack, bool blocking)
 		while (!sent_local)
 		{
 			usleep(100);
-			while (send_queue_access) {};
-			send_queue_access = true;
+			send_queue_mutex.lock();
 			sent_local = sent;
-			send_queue_access = false;
+			send_queue_mutex.unlock();
 		}
 	}
 }
@@ -204,8 +195,7 @@ packet* serial::recv (unsigned char tag, bool blocking)
 
 	do
 	{
-		while (recv_queue_access) {};
-		recv_queue_access = true;
+		recv_queue_mutex.lock();
 		// look for oldest packet with matching tag
 		for (ii=0; ii<recv_queue_packets.size(); ii++)
 		{
@@ -219,7 +209,7 @@ packet* serial::recv (unsigned char tag, bool blocking)
 				ii = recv_queue_packets.size();
 			}
 		}
-		recv_queue_access = false;
+		recv_queue_mutex.unlock();
 		if (!found && blocking) usleep(1000);
 	} while (!found && blocking);
 	return p;
