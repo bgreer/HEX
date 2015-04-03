@@ -6,6 +6,8 @@
 #define LOOP_DELAY 1
 
 // TARGET: Arbotix-M controller
+// the theme for communication here is:
+//  do not speak unless spoken to
 
 /* servo IDs:
  *           back
@@ -32,38 +34,74 @@ int idmap[NUM_SERVOS];
 float temp[NUM_SERVOS], pos[NUM_SERVOS];
 float avgtemp, maxtemp;
 
-long checkTemp, checkPos; // how often to check on servos
-long prevcheckTemp, prevcheckPos, currtime;
-
 packet *currpacket;
 int packetstart, headercount, psize, dsize, packetind;
 unsigned char readbuffer[1024];
-unsigned char buffer[9], tag;
+unsigned char buffer[10], tag, checksum;
 bool packetloading;
+
+// parse the current packet and set limits based on it
+// setting all servo takes about 3.2 ms
+void setPositions ()
+{
+	int ii;
+	float pos;
+
+	for (ii=0; ii<NUM_SERVOS; ii++)
+	{
+		memcpy(&pos, currpacket->buffer+PACKET_HEADER_SIZE+ii*sizeof(float), 
+				sizeof(float));
+		servo[ii]->setPosition(pos);
+	}
+}
+
+void setLimits()
+{
+
+}
+
+void sendData()
+{
+	int ii;
+	float pos;
+	packet *pack;
+
+	pack = new packet(NUM_SERVOS*sizeof(float), 'D', 64);
+	for (ii=0; ii<NUM_SERVOS; ii++)
+	{
+		pos = servo[ii]->getPosition();
+		memcpy(pack->buffer+PACKET_HEADER_SIZE+ii*sizeof(float), 
+				&pos, sizeof(float));
+	}
+	Serial.write(pack->buffer, pack->packet_size);
+	delete pack;
+}
 
 void parsePacket ()
 {
 	int ii;
 	float pos;
 	unsigned long t0, t1;
+	// TODO: use checksum
 
-	Serial.println("a");
-	// setting all servo takes about 3.2 ms
-	//t0 = micros();
-	// do something with currpacket
-	if (currpacket->getTag() == 'S')
+	if (!currpacket->verify()) 
 	{
-		servo[0]->setPosition(100.+random(100));
-		for (ii=0; ii<18; ii++)
-		{
-			memcpy(&pos, currpacket->buffer+PACKET_HEADER_SIZE+ii*sizeof(float), sizeof(float));
-			if (fabs(pos - 150.) < 30.)
-				servo[ii]->setPosition(pos);
-		}
+		Serial.println("CHECKSUM ERROR");
+		return;
 	}
-	//t1 = micros();
-	//Serial.print("pp: ");
-	Serial.println(t1-t0);
+
+	switch (currpacket->getTag())
+	{
+		case 'D': // get servo data
+			sendData();
+			break;
+		case 'S': // set servo positions
+			setPositions();
+			break;
+		case 'L': // set servo limits
+			setLimits();
+			break;
+	}
 }
 
 void setup ()
@@ -74,11 +112,11 @@ void setup ()
 	Serial.setTimeout(1);
 	randomSeed(analogRead(0));
 
-	checkTemp = 0;
-	checkPos = 0;
-
 	ax12Init(1000000);
-	
+
+	// because 1) i dont like the default servo positions
+	// and 2) i messed them up anyways
+	// remap here.
 	idmap[0] = 1; idmap[1] = 3; idmap[2] = 5;
 	idmap[3] = 13; idmap[4] = 15; idmap[5] = 17;
 	idmap[6] = 7; idmap[7] = 9; idmap[8] = 11;
@@ -89,22 +127,25 @@ void setup ()
 	for (ii=0; ii<NUM_SERVOS; ii++)
 	{
 		servo[ii] = new axservo(idmap[ii]);
+		// for nice smooth motion
 		servo[ii]->setComplianceSlopes(64,64);
-		if (ii<9) servo[ii]->reverse = true;
+		// half the body is reversed
+		if (ii<9 && !(ii%3==0)) servo[ii]->reverse = true;
+		// stiffen
 		servo[ii]->setTorqueEnable(true);
+		// set servos to 'fast' mode
+		// only ack when asked to
 		servo[ii]->setReturnLevel(1);
+		// delay 10us between commands
 		servo[ii]->setReturnDelay(10);
+		// make local delay the same
 		servo[ii]->SERVO_DELAY = 10;
-		Serial.println(servo[ii]->getReturnDelay());
-//		servo[ii]->setPosition(150.);
 	}
-	currtime = millis();
-	prevcheckPos = currtime;
-	prevcheckTemp = currtime;
 
 	packetstart = 0;
 	packetloading = false;
-	delay(100);
+	delay(50);
+	// setup done, ready to act
 }
 
 void loop ()
@@ -115,14 +156,6 @@ void loop ()
 
 	// listen for packets
 	nbytes = 0;
-	/*
-	while ((num=Serial.available()) && nbytes < 1024-64)
-	{
-		Serial.readBytes((char*)(readbuffer+nbytes),1024);
-//		Serial.println(num);
-		nbytes += num;
-	}
-	*/
 	while (Serial.available() && nbytes < 1024)
 	{
 		readbuffer[nbytes] = Serial.read();
@@ -150,18 +183,20 @@ void loop ()
 			headercount = 0;
 			packetstart = 0;
 		} else if (packetloading) {
-			if (headercount < 9)
+			if (headercount < 10)
 			{
 				buffer[headercount] = inByte;
 				headercount ++;
-				if (headercount == 9) // parse header
+				if (headercount == 10) // parse header
 				{
 					memcpy(&psize, buffer, 4);
 					memcpy(&dsize, buffer+4, 4);
 					memcpy(&tag, buffer+8, 1);
+					memcpy(&checksum, buffer+9, 1);
 					if (psize > 2048) psize = 2048;
 					if (dsize > psize) dsize = psize;
 					currpacket = new packet(dsize, tag, psize);
+					currpacket->buffer[PACKET_HEADER_CHECKSUM] = checksum;
 					packetind = 0;
 				}
 			} else {
@@ -180,27 +215,5 @@ void loop ()
 
 	}
 	
-
-	// check on various things
-	currtime = millis();
-	if (currtime - prevcheckPos > checkPos && checkPos > 0)
-	{
-		for (ii=0; ii<NUM_SERVOS; ii++)
-			pos[ii] = servo[ii]->getPosition();
-		prevcheckPos = currtime;
-	}
-	if (currtime - prevcheckTemp > checkTemp && checkTemp > 0)
-	{
-		avgtemp = 0.0;
-		maxtemp = 0.0;
-		for (ii=0; ii<NUM_SERVOS; ii++)
-		{
-			temp[ii] = servo[ii]->getTemperature();
-			avgtemp += temp[ii];
-			if (temp[ii] > maxtemp) maxtemp = temp[ii];
-		}
-		avgtemp /= (float)NUM_SERVOS;
-		prevcheckTemp = currtime;
-	}
 	delay(LOOP_DELAY);
 }
