@@ -1,5 +1,6 @@
 #include <iostream>
 #include <math.h>
+#include "bezier2d.h"
 #define DEGTORAD 0.01745329251
 #define RADTODEG 57.2957795131
 
@@ -53,6 +54,9 @@ public:
 	float angleub[3], anglelb[3]; // angle bounds
 	float legpos[6][3]; // root of leg in xyz
 	float legang[6]; // root angle of leg
+
+	// for walking
+	bezier2d b2d_walk_up, b2d_walk_down;
 
 	hexapod ();
 

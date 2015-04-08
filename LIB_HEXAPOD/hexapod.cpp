@@ -1,16 +1,15 @@
 #include "hexapod.h"
 
-
 hexapod::hexapod()
 {
 	int ii;
 
 	// init constants for each leg
-	length[0] = 5.23; // in cm
+	length[0] = 5.04; // in cm
 	length[1] = 6.52;
-	length[2] = 13.2;
-	femurangle = 11.5*DEGTORAD;
-	tibiaangle = 47.3*DEGTORAD;
+	length[2] = 13.3;
+	femurangle = 9.53*DEGTORAD; // old: 11.5
+	tibiaangle = 45.0*DEGTORAD; // old_47.3
 
 	anglelb[0] = 75.0*DEGTORAD;
 	angleub[0] = 245.*DEGTORAD;
@@ -22,8 +21,8 @@ hexapod::hexapod()
 	{
 		anglelb[ii] -= 150.*DEGTORAD; // because servos are straight at 150 degrees
 		angleub[ii] -= 150.*DEGTORAD;
-		anglelb[ii] *= 0.75;
-		angleub[ii] *= 0.75;
+		//anglelb[ii] *= 0.75;
+		//angleub[ii] *= 0.75;
 	}
 
 	legpos[0][0] = 11.98;
@@ -53,6 +52,19 @@ hexapod::hexapod()
 	legang[3] =-45.*DEGTORAD;
 	legang[4] =-90.0*DEGTORAD;
 	legang[5] =-135.0*DEGTORAD;
+
+	// initialize bezier curve gait
+	// goes from +-1 in x and 0 to 1 in z
+	b2d_walk_up.addPoint(-0.83775,0);
+	b2d_walk_up.addPoint(-1.11701,0);
+	b2d_walk_up.addPoint(-1.39626,0);
+	b2d_walk_up.addPoint(0,3.2);
+	b2d_walk_up.addPoint(1.39626,0);
+	b2d_walk_up.addPoint(1.11701,0);
+	b2d_walk_up.addPoint(0.83775,0);
+
+	b2d_walk_down.addPoint(0.83775,0);
+	b2d_walk_down.addPoint(-0.83775,0);
 }
 
 void hexapod::setAngles ()
@@ -183,28 +195,28 @@ void hexapod::FKSolve (int leg, float *angles, float *pos)
 void hexapod::stand ()
 {
 	int ii;
-	for (ii=0; ii<18; ii++)
+	float target[3];
+	for (ii=0; ii<6; ii++)
 	{
-		if (ii % 3 == 0)
-			angle[ii] = 150.;
-		if (ii % 3 == 1)
-			angle[ii] = 180.;
-		if (ii % 3 == 2)
-			angle[ii] = 80.;
+		target[0] = legpos[ii][0] + 10.0*cos(legang[ii]);
+		target[1] = legpos[ii][1] + 10.0*sin(legang[ii]);
+		target[2] = -10.0;
+		IKSolve(ii,target);
 	}
+	setServoAngles();
 }
 
 void hexapod::sit ()
 {
 	int ii;
-	for (ii=0; ii<18; ii++)
+	float target[3];
+	for (ii=0; ii<6; ii++)
 	{
-		if (ii % 3 == 0)
-			angle[ii] = 150.;
-		if (ii % 3 == 1)
-			angle[ii] = 240.;
-		if (ii % 3 == 2)
-			angle[ii] = 220.;
+		target[0] = legpos[ii][0] + 10.0*cos(legang[ii]);
+		target[1] = legpos[ii][1] + 10.0*sin(legang[ii]);
+		target[2] = -5.0;
+		IKSolve(ii,target);
 	}
+	setServoAngles();
 }
 
