@@ -1,4 +1,5 @@
 
+#include <stdlib.h>
 
 class scan
 {

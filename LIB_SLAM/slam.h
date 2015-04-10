@@ -1,55 +1,30 @@
+#include <iostream>
+#include <fstream>
+#include <stdio.h>
+#include <cmath>
+#include <complex>
 #include "fftw3.h"
-
+#include "scan.h"
+using namespace std;
+#define PI 3.14159265359
 class slam
 {
-
+public:
 	int nx, ny; // size of map in pixels
 	float scale; // cm per pixel
-	float *map, *map_filt, *map_dx, *map_dy;
+	float maxdist;
+	float *map, *map_filt, *map_dx, *map_dy; // 2d, let y be fastest dimension
 	float currx, curry, currang; // current position
 
 	// filters
-	fftw_complex *filt, *filt_dx, *filt_dy;
+	complex<double> *filt, *filt_dx, *filt_dy;
 	// filt_dy is
 
-	// init with size in pixels and scale (for comparing to scan)
-	slam (int x, int y, float s)
-	{
-		nx = x;
-		ny = y;
-		scale = s;
-
-		// precompute fourier filters
-		filt = (fftw_complex*) malloc(nx*ny*sizeof(fftw_complex));
-
-		// make space for primary map
-		map = (float*) malloc(nx*ny*sizeof(float));
-		// make space for filtered maps
-		map_filt = (float*) malloc(nx*ny*sizeof(float));
-		map_dx = (float*) malloc(nx*ny*sizeof(float));
-		map_dy = (float*) malloc(nx*ny*sizeof(float));
-	}
-
-	// given a scan and known position, add data to map
-	// no slam, just mapping
-	// useful for robot getting bearings before slam stepping
-	integrate (scan *s, float x_val, float y_val, float ang_val)
-	{
-
-	}
-
-	// given a scan and estimate of position, perform SLAM step
-	step (scan *s, float x_guess, float y_guess, float ang_guess)
-	{
-		// filter map in fourier space
-		// set up data for iteration
-		// iterate until converged or failed
-		// compute psi and jacobian
-		// take step
-		// compute new psi
-		// redo step size (if necessary)
-		// if converged, apply new position and heading
-	}
+	slam (int x, int y, float s);
+	void integrate (scan *s, float x_val, float y_val, float ang_val);
+	void filter ();
+	void step (scan *s, float x_guess, float y_guess, float ang_guess);
+	void outputMap (char *fname);
 
 	~slam ()
 	{
@@ -59,3 +34,5 @@ class slam
 		free(map_dy);
 	}
 };
+
+bool withinBounds (int x, int y, int x0, int x1, int y0, int y1);
