@@ -31,8 +31,6 @@
 
 axservo *servo[NUM_SERVOS];
 int idmap[NUM_SERVOS];
-float temp[NUM_SERVOS], pos[NUM_SERVOS];
-float avgtemp, maxtemp;
 
 packet *currpacket;
 int packetstart, headercount, psize, dsize, packetind;
@@ -63,15 +61,38 @@ void setLimits()
 void sendData()
 {
 	int ii;
-	float pos;
+	float value;
+	uint8_t flag;
 	packet *pack;
 
-	pack = new packet(NUM_SERVOS*sizeof(float), 'D', 64);
+	// determines what data to collect
+	flag = (uint8_t)currpacket->buffer[PACKET_HEADER_SIZE];
+
+	pack = new packet(NUM_SERVOS*sizeof(float)+1, 'E', 64);
+	pack->buffer[PACKET_HEADER_SIZE] = flag;
 	for (ii=0; ii<NUM_SERVOS; ii++)
 	{
-		pos = servo[ii]->getPosition();
-		memcpy(pack->buffer+PACKET_HEADER_SIZE+ii*sizeof(float), 
-				&pos, sizeof(float));
+		value = 0.0;
+		switch (flag)
+		{
+			case 1:
+				value = servo[ii]->getPosition();
+				break;
+			case 2:
+				value = servo[ii]->getTemperature();
+				break;
+			case 3:
+				value = servo[ii]->getSpeed();
+				break;
+			case 4:
+				value = servo[ii]->getLoad();
+				break;
+			case 5:
+				value = servo[ii]->getVoltage();
+				break;
+		}
+		memcpy(pack->buffer+PACKET_HEADER_SIZE+1+ii*sizeof(float), 
+				&value, sizeof(float));
 	}
 	Serial.write(pack->buffer, pack->packet_size);
 	delete pack;

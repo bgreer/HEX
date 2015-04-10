@@ -13,8 +13,8 @@ packet::packet (int datasize, unsigned char tag, int nearest)
 		packet_size = (int)((data_size+PACKET_HEADER_SIZE)/nearest + 1)*nearest;
 		padding = packet_size - (data_size+PACKET_HEADER_SIZE);
 	}
-//	buffer = (unsigned char*) malloc(packet_size*sizeof(unsigned char));
-	buffer = new unsigned char [packet_size];
+	buffer = (unsigned char*) malloc(packet_size*sizeof(unsigned char));
+//	buffer = new unsigned char [packet_size];
 //	buffer = new char [packet_size];
 	memset(buffer, 0x00, sizeof(unsigned char) * packet_size);
 	memset(buffer, 0x11, 3 * sizeof(unsigned char));

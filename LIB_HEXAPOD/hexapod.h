@@ -7,6 +7,8 @@
 #define MAXITER 300
 // position tolerance in cm
 #define TOLERANCE 0.05
+// angle to move things away from bounds by, in radians
+#define ANGEPS 0.01
 
 using namespace std;
 

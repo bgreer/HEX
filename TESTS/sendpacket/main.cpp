@@ -25,10 +25,10 @@ int main(void)
 	int ii, ij, ik, ix, iy, size, ind;
 	int cx, cy;
 	serial ser;
-	packet *pack, *pack2;
+	packet *pack, *pack2, *pack_ask, *pack_data;
 	hexapod hex;
 	int dsize, psize;
-	float pos, target[3];
+	float pos, target[3], avgtemp;
 	float phase, xpos, zpos, fdf;
 	double time, dt, lasttime, modtime, modtime2, speed;
 	unsigned char chk;
@@ -38,11 +38,12 @@ int main(void)
 	// mostly to make sure it's ready to do stuff
 	cout << "Confirming Connection.." << endl;
 	pack = new packet(16, 'D', 128); // reasonable size?
+	pack->buffer[PACKET_HEADER_SIZE] = 1;
 	ser.send(pack, true);
 	sleep(1);
 	
 	pack2 = NULL;
-	while ((pack2 = ser.recv('D', false)) == NULL)
+	while ((pack2 = ser.recv('E', false)) == NULL)
 	{
 		ser.send(pack, true);
 		sleep(1);
@@ -51,12 +52,13 @@ int main(void)
 	cout << "System Ready." << endl;
 	for (ii=0; ii<18; ii++)
 	{
-		memcpy(&pos, pack2->buffer+PACKET_HEADER_SIZE+ii*sizeof(float), 
+		memcpy(&pos, pack2->buffer+PACKET_HEADER_SIZE+1+ii*sizeof(float), 
 				sizeof(float));
 		hex.servoangle[ii] = pos;
 	}
 	hex.setAngles();
 	delete pack2;
+
 
 	cout << "Angles read." << endl;
 
@@ -75,22 +77,27 @@ int main(void)
 	ser.send(pack);
 
 	// max useable speed is 2.0 -> 1 foot per second
-	speed = -0.5; // in cycles per second
-	fdf = 0.6; // foot-down fraction
+	speed = 1.0; // in cycles per second
+	fdf = 0.55; // foot-down fraction
 
+	// get ready to ask for data
+	pack_ask = new packet(16, 'D', 128);
+	pack_ask->buffer[PACKET_HEADER_SIZE] = 2;
+	pack_data = NULL;
+	ser.send(pack_ask);
+	
 	cout << "Begin IK" << endl;
 	// IK test
 	time = 0.0;
 	modtime = 0.0;
 	lasttime = getTime();
-	while (time < 10.0)
+	while (time < 120.0)
 	{
-		speed = 2.0*pow(sin(time*2.*3.14159/20.0),2.0);
 		for (ik=0; ik<6; ik++)
 		{
 			phase = (3.14159)*ik;
 			// set target relative to leg
-			modtime2 = fmod(modtime+0.5*ik+(hex.legpos[ik][0]-hex.legpos[0][0])*0.01, 1.0);
+			modtime2 = fmod(modtime+0.5*ik+(hex.legpos[ik][0]-hex.legpos[0][0])*0.0125, 1.0);
 			if (modtime2 < fdf) hex.b2d_walk_down.getPos(modtime2/fdf, &xpos, &zpos);
 			else hex.b2d_walk_up.getPos((modtime2-fdf)/(1.-fdf), &xpos, &zpos);
 
@@ -119,6 +126,23 @@ int main(void)
 		pack->buffer[psize-1] = '\n';
 		ser.send(pack);
 		usleep(20*1000);
+		// ask for data?
+		if ((pack2=ser.recv('E',false)) != NULL)
+		{
+			avgtemp = 0.0;
+			for (ii=0; ii<18; ii++)
+			{
+				memcpy(&pos, pack2->buffer+PACKET_HEADER_SIZE+1+ii*sizeof(float), 
+						sizeof(float));
+				avgtemp += pos;
+			}
+			avgtemp /= 18.;
+			cout << time << " " << avgtemp << endl;
+			delete pack2;
+			pack2 = NULL;
+			ser.send(pack_ask);
+		}
+
 		dt = (getTime() - lasttime);
 		lasttime = getTime();
 		time += dt;

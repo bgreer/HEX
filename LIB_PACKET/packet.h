@@ -31,7 +31,7 @@ public:
 
 	~packet ()
 	{
-		delete [] buffer;
+		free(buffer);
 	}
 	unsigned char getTag ();
 	void setTag (unsigned char newtag);

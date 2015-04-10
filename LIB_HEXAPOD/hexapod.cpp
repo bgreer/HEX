@@ -115,8 +115,10 @@ bool hexapod::IKSolve (int leg, float *target)
 	// begin 2-joint IK solver using jacobian pseudo-inverse
 	// whenever we call FKSolve, need to convert to polar coords around leg root
 	fkangles[0] = angle[leg*3]; // already solved for
-	fkangles[1] = angle[leg*3+1]; // take current position
-	fkangles[2] = angle[leg*3+2];
+	// starting point is influenced by actual current point
+	// but this makes it safer in case the leg has somehow gone out of bounds
+	fkangles[1] = angle[leg*3+1]*0.5;
+	fkangles[2] = angle[leg*3+2]*0.5;
 	FKSolve(leg, fkangles, fkpos);
 	posz = fkpos[2] - legpos[leg][2];
 	posr = sqrt(pow(fkpos[0]-legpos[leg][0],2) + pow(fkpos[1]-legpos[leg][1],2));
@@ -152,10 +154,14 @@ bool hexapod::IKSolve (int leg, float *target)
 		fkangles[1] += delta[0]*0.5;
 		fkangles[2] += delta[1]*0.5;
 		// enforce bounds
-		if (fkangles[1] > angleub[1]) {fkangles[1] = angleub[1]; cout << "ang1ub " << angleub[1] << endl;}
-		if (fkangles[1] < anglelb[1]) {fkangles[1] = anglelb[1]; cout << "ang1lb " << anglelb[1] << endl;}
-		if (fkangles[2] > angleub[2]) {fkangles[2] = angleub[2]; cout << "ang2ub " << angleub[2] << endl;}
-		if (fkangles[2] < anglelb[2]) {fkangles[2] = anglelb[2]; cout << "ang2lb " << anglelb[2] << endl;}
+		if (fkangles[1] >= angleub[1]) 
+			{fkangles[1] = angleub[1]-ANGEPS; cout << "ang1ub"<<leg<<" " << angleub[1] << endl;}
+		if (fkangles[1] <= anglelb[1]) 
+			{fkangles[1] = anglelb[1]+ANGEPS; cout << "ang1lb"<<leg<<" " << anglelb[1] << endl;}
+		if (fkangles[2] >= angleub[2]) 
+			{fkangles[2] = angleub[2]-ANGEPS; cout << "ang2ub"<<leg<<" " << angleub[2] << endl;}
+		if (fkangles[2] <= anglelb[2]) 
+			{fkangles[2] = anglelb[2]+ANGEPS; cout << "ang2lb"<<leg<<" " << anglelb[2] << endl;}
 		// FK
 		FKSolve(leg, fkangles, fkpos);
 		posz = fkpos[2] - legpos[leg][2];
