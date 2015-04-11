@@ -49,9 +49,11 @@ int main (void)
 {
 	int ii;
 	default_random_engine gen;
-	slam slammer(128,128,10.0);
+	slam slammer(64,64,10.0);
 	scan *s;
 	float xg, yg, ag;
+
+	slammer.setRegularization(0.0,0.0,0.0);
 
 
 	// make some fake scans
@@ -62,19 +64,23 @@ int main (void)
 		delete s;
 	}
 
-
+	for (ii=0; ii<25; ii++)
+	{
 		// generate scan to match
-		s = newScan(50.0, 0.0, 0.2, &gen);
+		s = newScan(ii*2, ii*1, 0.5, &gen);
 		// guess values, from kinematics?
 		xg = 0.0;
 		yg = 0.0;
-		ag = 0.0;
+		ag = 0.5;
 
 		slammer.step(s, xg, yg, ag);
+		cout << slammer.currx << " " << slammer.curry << " " << slammer.currang << " " << ii*2 << endl;
+//		slammer.integrate(s, xg, yg, ag);
 
-		slammer.outputMap("map");
+//		slammer.outputMap("map");
 
 		delete s;
-
+	}
+	slammer.outputMap("map");
 	return EXIT_SUCCESS;
 }

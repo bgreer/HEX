@@ -11,7 +11,7 @@ HEXAPOD = $(HEXAPODDIR)/hexapod.cpp $(HEXAPODDIR)/hexapod.h
 SLAM = $(SLAMDIR)/slam.cpp $(SLAMDIR)/slam.h $(SLAMDIR)/scan.h
 
 slamtest : main.cpp $(SLAM)
-	g++ -std=c++0x -O2 -o slamtest main.cpp $(SLAM) -lfftw3 -lm
+	g++ -std=c++0x -g -O2 -o slamtest main.cpp $(SLAM) -lfftw3 -lm
 
 clean :
 	rm -f slamtest

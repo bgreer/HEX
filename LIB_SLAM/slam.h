@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <cmath>
 #include <complex>
+#include <string.h>
 #include "fftw3.h"
 #include "scan.h"
 
@@ -27,6 +28,7 @@ public:
 	// filt_dy is
 
 	slam (int x, int y, float s);
+	void setRegularization (float valx, float valy, float vala);
 	void integrate (scan *s, float x_val, float y_val, float ang_val);
 	void filter ();
 	bool step (scan *s, float x_guess, float y_guess, float ang_guess);
@@ -34,10 +36,14 @@ public:
 
 	~slam ()
 	{
-		free(map);
-		free(map_filt);
-		free(map_dx);
-		free(map_dy);
+		delete [] filt;
+		delete [] filt_dx;
+		delete [] filt_dy;
+		delete [] map;
+		delete [] map_filt;
+		delete [] map_dx;
+		delete [] map_dy;
+		fftw_cleanup();
 	}
 };
 

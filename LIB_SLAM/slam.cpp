@@ -8,7 +8,7 @@ slam::slam (int x, int y, float s)
 	int ix, iy;
 	float *kernel, r;
 	complex<double> *input, *output;
-	double kx, ky;
+	double kx, ky, width;
 	complex<double> val_i(0,1);
 	fftw_plan plan;
 
@@ -16,9 +16,8 @@ slam::slam (int x, int y, float s)
 	ny = y;
 	scale = s;
 	maxdist = sqrt(nx*nx*0.25 + ny*ny*0.25)*scale;
-	// TODO: allow modification of regularization values
-	reg_a = 1.0;
-	reg_b = 1.0;
+	reg_a = 0.1;
+	reg_b = 0.1;
 	reg_c = 1.0;
 	
 	input = new complex<double> [nx*ny];
@@ -34,7 +33,8 @@ slam::slam (int x, int y, float s)
 		{
 			r = sqrt(pow(ix-nx/2,2) + pow(iy-ny/2,2));
 			input[ix*ny+iy] = exp(-pow(r*scale/100.,2));
-			input[ix*ny+iy] = 1./(r + 3.0);
+			width = 50./scale;
+			input[ix*ny+iy] = width/(pow(r,1.5) + width);
 //			if (r > nx*0.1/2) input[ix*ny+iy] = 0;
 		}
 	}
@@ -60,12 +60,23 @@ slam::slam (int x, int y, float s)
 	fftw_destroy_plan(plan);
 	
 	// make space for primary map
-	map = (float*) malloc(nx*ny*sizeof(float));
+	map = new float [nx*ny];
+	memset(map, 0x00, nx*ny*sizeof(float));
 	// make space for filtered maps
-	map_filt = (float*) malloc(nx*ny*sizeof(float));
-	map_dx = (float*) malloc(nx*ny*sizeof(float));
-	map_dy = (float*) malloc(nx*ny*sizeof(float));
+	map_filt = new float [nx*ny];
+	memset(map_filt, 0x00, nx*ny*sizeof(float));
+	map_dx = new float [nx*ny];
+	memset(map_dx, 0x00, nx*ny*sizeof(float));
+	map_dy = new float [nx*ny];
+	memset(map_dy, 0x00, nx*ny*sizeof(float));
 
+}
+
+void slam::setRegularization (float valx, float valy, float vala)
+{
+	reg_a = valx;
+	reg_b = valy;
+	reg_c = vala;
 }
 
 // given a scan and known position, add data to map
@@ -182,8 +193,8 @@ bool slam::step (scan *s, float x_guess, float y_guess, float ang_guess)
 	while (iter < MAXITER && step > STEPTOL)
 	{
 		// compute psi and jacobian
-		psi = 0.0;
-		count = 0.0;
+		psi = reg_a*pow(xval-x_guess,2) + reg_b*pow(yval-y_guess,2) 
+			+ reg_c*pow(aval-ang_guess,2);
 		J[0] = 0.0; J[1] = 0.0; J[2] = 0.0;
 		for (ii=0; ii<s->num; ii++)
 		{
@@ -192,41 +203,36 @@ bool slam::step (scan *s, float x_guess, float y_guess, float ang_guess)
 			if (withinBounds(xind,yind,0,nx-1,0,ny-1))
 			{
 				psi += map_filt[xind*ny+yind];
-				J[0] += map_dx[xind*ny+yind];
-				J[1] += map_dy[xind*ny+yind];
+				J[0] += map_dx[xind*ny+yind] + 2.*reg_a*(xval-x_guess);
+				J[1] += map_dy[xind*ny+yind] + 2.*reg_b*(yval-y_guess);
 				J[2] += -map_dx[xind*ny+yind]*s->dist[ii]*sin(s->angle[ii]+aval)/scale + 
-					map_dy[xind*ny+yind]*s->dist[ii]*cos(s->angle[ii]+aval)/scale;
-				count += 1.0;
+					map_dy[xind*ny+yind]*s->dist[ii]*cos(s->angle[ii]+aval)/scale
+					+ 2.*reg_c*(aval-ang_guess);
+			} else {
+				psi += 0.0; // far away
 			}
 		}
-		// normalize
-		psi /= count;
-		J[0] /= count; J[1] /= count; J[2] /= count;
 		// compute step
 		inv = 1.0/(J[0]*J[0] + J[1]*J[1] + J[2]*J[2]);
 		M[0] = J[0]*inv;
 		M[1] = J[1]*inv;
 		M[2] = J[2]*inv;
 		// take step
-		cout << "step " << step*psi*M[0] << " " << step*psi*M[1] << " " << step*psi*M[2] << endl;
-		x_trial = xval + 1.*step*psi*M[0];
-		y_trial = yval + 1.*step*psi*M[1];
-		a_trial = aval + 0.01*step*psi*M[2];
+//		cout << "step " << step*psi*M[0] << " " << step*psi*M[1] << " " << step*psi*M[2] << endl;
+		x_trial = xval + 50.*step*psi*M[0];
+		y_trial = yval + 50.*step*psi*M[1];
+		a_trial = aval + 0.1*step*psi*M[2];
 		// compute new psi based on trial solution
-		psi_trial = 0.0;
-		count = 0.0;
+		psi_trial = reg_a*pow(x_trial-x_guess,2) + reg_b*pow(y_trial-y_guess,2) 
+			+ reg_c*pow(a_trial-ang_guess,2);
 		for (ii=0; ii<s->num; ii++)
 		{
 			xind = (s->dist[ii]*cos(s->angle[ii]+a_trial)+x_trial)/scale + nx/2;
 			yind = (s->dist[ii]*sin(s->angle[ii]+a_trial)+y_trial)/scale + ny/2;
 			if (withinBounds(xind,yind,0,nx-1,0,ny-1))
-			{
 				psi_trial += map_filt[xind*ny+yind];
-				count += 1.0;
-			}
 		}
-		psi_trial /= count;
-		cout << "psi " << psi << "  " << psi_trial << endl;
+//		cout << "psi " << psi << "  " << psi_trial << endl;
 		// redo step size (if necessary)
 		if (psi_trial <= psi)
 		{
@@ -238,8 +244,8 @@ bool slam::step (scan *s, float x_guess, float y_guess, float ang_guess)
 		} else {
 			step *= 0.5; // take a smaller step
 		}
-		cout << iter << " " << xval << " " << yval << " " << aval << " " << step << endl;
-		cout << endl;
+//		cout << iter << " " << xval << " " << yval << " " << aval << " " << step << endl;
+//		cout << endl;
 	}
 	// if converged, apply new position and heading
 	if (iter == MAXITER)
@@ -251,9 +257,8 @@ bool slam::step (scan *s, float x_guess, float y_guess, float ang_guess)
 		curry = yval;
 		currang = aval;
 		// add scan to map
-		cout << "SUCCESS" << endl;
-		for (ii=0; ii<100; ii++)
-			integrate(s, xval, yval, aval);
+//		cout << "SUCCESS" << endl;
+		integrate(s, xval, yval, aval);
 		return true;
 	}
 }
