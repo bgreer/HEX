@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <cmath>
 #include <complex>
+#include <mutex>
 #include <string.h>
 #include "fftw3.h"
 #include "scan.h"
@@ -20,6 +21,7 @@ public:
 	float scale; // cm per pixel
 	float maxdist;
 	float *map, *map_filt, *map_dx, *map_dy; // 2d, let y be fastest dimension
+	mutex maplock; // for other threads accessing the map
 	float currx, curry, currang; // current position
 	float reg_a, reg_b, reg_c; // regularization params
 

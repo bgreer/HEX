@@ -12,6 +12,8 @@ slam::slam (int x, int y, float s)
 	complex<double> val_i(0,1);
 	fftw_plan plan;
 
+	maplock.lock();
+
 	nx = x;
 	ny = y;
 	scale = s;
@@ -69,7 +71,7 @@ slam::slam (int x, int y, float s)
 	memset(map_dx, 0x00, nx*ny*sizeof(float));
 	map_dy = new float [nx*ny];
 	memset(map_dy, 0x00, nx*ny*sizeof(float));
-
+	maplock.unlock();
 }
 
 void slam::setRegularization (float valx, float valy, float vala)
@@ -84,7 +86,8 @@ void slam::setRegularization (float valx, float valy, float vala)
 // useful for robot getting bearings before slam stepping
 void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 {
-	int ii, xpos, ypos;
+	int ii, xpos, ypos, ind;
+	float tht;
 
 	// error checking
 	if (s->num == 0)
@@ -93,6 +96,19 @@ void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 		return;
 	}
 
+
+	maplock.lock();
+	// decay map???
+	// TODO: check if point is within bounds of scan
+	// if it is, decay it
+	// if not, leave it alone
+	for (xpos=0; xpos<nx; xpos++)
+		for (ypos=0; ypos<ny; ypos++)
+			map[xpos*ny+ypos] *= 0.95;
+
+	// find nearest angles 
+	//tht = atan2();
+
 	for (ii=0; ii<s->num; ii++)
 	{
 		xpos = (int)((s->dist[ii]*cos(s->angle[ii]+ang_val)+x_val)/scale + nx/2);
@@ -100,6 +116,7 @@ void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 		if (withinBounds(xpos,ypos,0,nx-1,0,ny-1))
 			map[xpos*ny+ypos] = min(map[xpos*ny+ypos]+s->dist[ii]*0.5/maxdist, 1.0);
 	}
+	maplock.unlock();
 }
 
 void slam::filter ()
@@ -124,10 +141,12 @@ void slam::filter ()
 			reinterpret_cast<fftw_complex*>(output), 
 			FFTW_BACKWARD, FFTW_ESTIMATE);
 
+	maplock.lock();
 	// load map into input
 	for (ix=0; ix<nx; ix++)
 		for (iy=0; iy<ny; iy++)
 			input[ix*ny+iy] = map[ix*ny+iy];
+	maplock.unlock();
 	fftw_execute(plan1);
 	// apply filter
 	for (ix=0; ix<nx; ix++)
