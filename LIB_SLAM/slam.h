@@ -5,8 +5,13 @@
 #include <complex>
 #include "fftw3.h"
 #include "scan.h"
+
 using namespace std;
+
 #define PI 3.14159265359
+#define MAXITER 1000
+#define STEPTOL 1e-4
+
 class slam
 {
 public:
@@ -15,6 +20,7 @@ public:
 	float maxdist;
 	float *map, *map_filt, *map_dx, *map_dy; // 2d, let y be fastest dimension
 	float currx, curry, currang; // current position
+	float reg_a, reg_b, reg_c; // regularization params
 
 	// filters
 	complex<double> *filt, *filt_dx, *filt_dy;
@@ -23,7 +29,7 @@ public:
 	slam (int x, int y, float s);
 	void integrate (scan *s, float x_val, float y_val, float ang_val);
 	void filter ();
-	void step (scan *s, float x_guess, float y_guess, float ang_guess);
+	bool step (scan *s, float x_guess, float y_guess, float ang_guess);
 	void outputMap (char *fname);
 
 	~slam ()
