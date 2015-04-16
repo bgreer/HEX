@@ -1,0 +1,26 @@
+A: 
+B: 
+C: 
+D: request data from arbotix-m controller
+E: general data packet from arbotix-m controller
+F: 
+G: 
+H: 
+I: 
+J: 
+K: 
+L: send servo limits to arbotix-m controller
+M: 
+N: 
+O: 
+P: 
+Q: 
+R: repeat message back to sender. used in testing
+S: send servo positions to arbotix-m controller
+T: test message, disregard
+U: 
+V: 
+W: 
+X: 
+Y: 
+Z: 
