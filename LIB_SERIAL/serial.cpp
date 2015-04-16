@@ -166,12 +166,19 @@ void serial::close ()
 
 void serial::send (packet *pack, bool blocking)
 {
-	bool sent, sent_local;
+	bool *sent;
+	bool sent_local;
+
+	sent = NULL;
+	if (blocking)
+	{
+		sent = new bool;
+		*sent = false;
+	}
 	send_queue_mutex.lock();
 	pack->setChecksum();
 	send_queue_packets.push_back(pack);
-	sent = false;
-	send_queue_confirm.push_back(&sent);
+	send_queue_confirm.push_back(sent);
 	send_queue_mutex.unlock();
 
 	if (blocking)
@@ -184,6 +191,7 @@ void serial::send (packet *pack, bool blocking)
 			sent_local = sent;
 			send_queue_mutex.unlock();
 		}
+		delete sent;
 	}
 }
 
