@@ -87,7 +87,7 @@ void slam::setRegularization (float valx, float valy, float vala)
 void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 {
 	int ii, xpos, ypos, ind;
-	float tht;
+	float tht, diff, dist, ang;
 
 	// error checking
 	if (s->num == 0)
@@ -99,15 +99,29 @@ void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 
 	maplock.lock();
 	// decay map???
-	// TODO: check if point is within bounds of scan
-	// if it is, decay it
-	// if not, leave it alone
 	for (xpos=0; xpos<nx; xpos++)
+	{
 		for (ypos=0; ypos<ny; ypos++)
-			map[xpos*ny+ypos] *= 0.95;
+		{
+			tht = atan2(ypos-ny/2-curry/scale, xpos-nx/2-currx/scale);
+			dist = sqrt(pow((ypos-ny/2)*scale-curry,2)+pow((xpos-nx/2)*scale-currx,2));
+			diff = 1e6;
+			for (ii=0; ii<s->num; ii++)
+			{
+				ang = fmod(s->angle[ii],(float)(2.*PI));
+				if (ang > PI) ang -= 2.*PI;
 
-	// find nearest angles 
-	//tht = atan2();
+				if (fabs(tht-ang) < diff)
+				{
+					diff = fabs(tht-ang);
+					ind = ii;
+				}
+			}
+			if (dist < s->dist[ind])
+				map[xpos*ny+ypos] *= 0.90;
+		}
+	}
+
 
 	for (ii=0; ii<s->num; ii++)
 	{

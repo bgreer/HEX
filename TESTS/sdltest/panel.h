@@ -63,8 +63,8 @@ public:
 			{
 				ind = (iy+innerbounds.y)*800 + ix+innerbounds.x;
 				// nearest neighbor
-				mx = ix*mapn/innerbounds.w;
-				my = iy*mapn/innerbounds.h;
+				mx = ix*mapnx/innerbounds.w;
+				my = iy*mapny/innerbounds.h;
 				val = map[mx*mapny + my];
 				color = 0;
 				if (val > 0.25) color = 0xbb0000;
@@ -75,8 +75,8 @@ public:
 			}
 		}
 		// plot location
-		mx = (slammer->currx/slammer->scale + mapn/2)*innerbounds.w/mapn;
-		my = (slammer->curry/slammer->scale + mapn/2)*innerbounds.h/mapn;
+		mx = (slammer->currx/slammer->scale + mapnx/2)*innerbounds.w/mapnx;
+		my = (slammer->curry/slammer->scale + mapny/2)*innerbounds.h/mapny;
 		for (ix=-2;ix<=2;ix++)
 		{
 			for (iy=-2; iy<=2; iy++)

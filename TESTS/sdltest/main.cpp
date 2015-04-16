@@ -15,13 +15,26 @@ using namespace std;
 
 scan* newScan (float realx, float realy, float realang, default_random_engine *gen)
 {
-	int ii, num;
+	int ii, ij, num, ik;
 	float d1, d2, d3, d4, tht, r;
+	float w1, w2;
+	float x1, x2, y1, y2, x0, y0, dr, xc, yc, d;
 	normal_distribution<float> dist(0.0,1.0);
 	scan *ret;
 
+	vector<float> wallx, wally, wallr;
+
+	wallx.push_back(800.0);
+	wally.push_back(0.0);
+	wallr.push_back(500.0);
+
+	wallx.push_back(0);
+	wally.push_back(0);
+	wallr.push_back(50.);
+
 	num = 360;
 	ret = new scan(num);
+
 
 	for (ii=0; ii<num; ii++)
 	{
@@ -29,6 +42,7 @@ scan* newScan (float realx, float realy, float realang, default_random_engine *g
 		ret->angle[ii] = tht;
 		tht += realang;
 		ret->weight[ii] = 1.0;
+
 		d1 = min((100.-realy)/sin(tht), 1000.);
 		if (d1 < 0.0) d1 = 1000.;
 		d2 = min((-100.-realy)/sin(tht), 1000.);
@@ -37,7 +51,9 @@ scan* newScan (float realx, float realy, float realang, default_random_engine *g
 		if (d3 < 0.0) d3 = 1000.;
 		d4 = min((-200.-realx)/cos(tht), 1000.);
 		if (d4 < 0.0) d4 = 1000.;
+
 		r = min(min(d1, d2), min(d3, d4));
+
 		r *= (1.0 + dist(*gen)*0.01);
 		ret->dist[ii] = r;
 	}
@@ -57,7 +73,7 @@ int main (void)
 	panel_map *p_mapper;
 	default_random_engine gen;
 	scan *s;
-	slam slammer(512,512,1.0);
+	slam slammer(128,64,5.0);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
@@ -66,7 +82,8 @@ int main (void)
 	}
 	atexit(SDL_Quit);
 
-	screen = SDL_SetVideoMode(800, 480, 32, SDL_NOFRAME);
+	screen = SDL_SetVideoMode(800, 480, 32, SDL_NOFRAME | SDL_FULLSCREEN);
+	SDL_ShowCursor(0);
 	rect_full.x = 0; rect_full.y = 0;
 	rect_full.w = 800; rect_full.h = 480;
 
@@ -86,11 +103,11 @@ int main (void)
 	while (!quit)
 	{
 		// generate scan to match
-		s = newScan(150.*sin(time/22.), 50.*sin(time/10.), time*0.6, &gen);
-//		slammer.step(s, slammer.currx, slammer.curry, slammer.currang);
-		slammer.step(s, 150.*sin(time/22.), 50.*sin(time/10.), time*0.6);
+		s = newScan(100.*cos(time/20.), 50.*sin(time/20.), time*0.6, &gen);
+		slammer.step(s, slammer.currx, slammer.curry, slammer.currang);
+//		slammer.step(s, 150.*sin(time/22.), 50.*sin(time/10.), time*0.6);
 //		slammer.integrate(s, 0.0, 0.0, 0.0);
-//		slammer.integrate(s, time*10., 0.0, time*0.6);
+//		slammer.integrate(s, 150.*sin(time/22.), 50.*sin(time/10.), time*0.6);
 		delete s;
 
 
