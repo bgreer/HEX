@@ -11,20 +11,21 @@ using namespace std;
 // [11] = (char) tag
 // [12] = checksum
 #define PACKET_HEADER_SIZE 13
-// offsets
+#define PACKET_FOOTER_SIZE 1
 #define PACKET_HEADER_PACKET_SIZE 3
 #define PACKET_HEADER_DATA_SIZE 7
 #define PACKET_HEADER_CHECKSUM 12
 #define PACKET_HEADER_TAG 11
-
 // an object that can be sent back and forth between the cpu and arduino
 // has a few helper functions for wrapping, checksums, etc
 
 class packet
 {
 public:
-	int data_size, packet_size, padding;
 	unsigned char *buffer; // stores everything
+	// pointers to sections of the main buffer:
+	int *p_packet_size, *p_data_size;
+	unsigned char *p_checksum, *p_tag, *data;
 
 	// CONSTRUCTOR
 	packet (int datasize, unsigned char tag, int nearest=0);
@@ -39,17 +40,5 @@ public:
 	unsigned char computeChecksum ();
 	void setChecksum ();
 
-	/*
-	char &operator[] (int ind)
-	{
-		if (ind >= data_size)
-		{
-			cout << "SOFT ERROR: invalid packet access" << endl;
-			return buffer[PACKET_HEADER_SIZE];
-		} else {
-			return buffer[ind+PACKET_HEADER_SIZE];
-		}
-	}
-	*/
 	
 };

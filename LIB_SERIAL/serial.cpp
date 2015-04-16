@@ -37,7 +37,7 @@ void listener_loop (serial *ser)
 		if (ser->send_queue_packets.size() > 0)
 		{
 			ser->send_queue_mutex.lock();
-			size = ser->send_queue_packets[0]->packet_size;
+			size = *(ser->send_queue_packets[0]->p_packet_size);
 			buff = ser->send_queue_packets[0]->buffer;
 			ptr = ser->send_queue_confirm[0];
 			ser->send_queue_packets.erase(ser->send_queue_packets.begin());

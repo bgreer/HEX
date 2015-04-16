@@ -38,7 +38,7 @@ int main(void)
 	// mostly to make sure it's ready to do stuff
 	cout << "Confirming Connection.." << endl;
 	pack = new packet(16, 'D', 128); // reasonable size?
-	pack->buffer[PACKET_HEADER_SIZE] = 1;
+	pack->data[0] = 1;
 	ser.send(pack, true);
 	sleep(1);
 	
@@ -52,7 +52,7 @@ int main(void)
 	cout << "System Ready." << endl;
 	for (ii=0; ii<18; ii++)
 	{
-		memcpy(&pos, pack2->buffer+PACKET_HEADER_SIZE+1+ii*sizeof(float), 
+		memcpy(&pos, pack2->data+1+ii*sizeof(float), 
 				sizeof(float));
 		hex.servoangle[ii] = pos;
 	}
@@ -70,10 +70,9 @@ int main(void)
 	for (ii=0; ii<18; ii++)
 	{
 		pos = hex.servoangle[ii];
-		memcpy(pack->buffer+PACKET_HEADER_SIZE+ii*sizeof(float),
+		memcpy(pack->data+ii*sizeof(float),
 				 &pos, sizeof(float));
 	}
-	pack->buffer[psize-1] = '\n';
 	ser.send(pack);
 
 	// max useable speed is 2.0 -> 1 foot per second
@@ -82,7 +81,7 @@ int main(void)
 
 	// get ready to ask for data
 	pack_ask = new packet(16, 'D', 128);
-	pack_ask->buffer[PACKET_HEADER_SIZE] = 2;
+	pack_ask->data[0] = 2;
 	pack_data = NULL;
 	ser.send(pack_ask);
 	
@@ -118,12 +117,11 @@ int main(void)
 				for (ii=0; ii<3; ii++)
 				{
 					pos = hex.servoangle[ik*3+ii];
-					memcpy(pack->buffer+PACKET_HEADER_SIZE+(ik*3+ii)*sizeof(float), 
+					memcpy(pack->data+(ik*3+ii)*sizeof(float), 
 							&pos, sizeof(float));
 				}
 			}
 		}
-		pack->buffer[psize-1] = '\n';
 		ser.send(pack);
 		usleep(20*1000);
 		// ask for data?
@@ -132,7 +130,7 @@ int main(void)
 			avgtemp = 0.0;
 			for (ii=0; ii<18; ii++)
 			{
-				memcpy(&pos, pack2->buffer+PACKET_HEADER_SIZE+1+ii*sizeof(float), 
+				memcpy(&pos, pack2->data+1+ii*sizeof(float), 
 						sizeof(float));
 				avgtemp += pos;
 			}

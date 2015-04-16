@@ -47,7 +47,7 @@ void setPositions ()
 
 	for (ii=0; ii<NUM_SERVOS; ii++)
 	{
-		memcpy(&pos, currpacket->buffer+PACKET_HEADER_SIZE+ii*sizeof(float), 
+		memcpy(&pos, currpacket->data+ii*sizeof(float), 
 				sizeof(float));
 		servo[ii]->setPosition(pos);
 	}
@@ -94,7 +94,7 @@ void sendData()
 		memcpy(pack->buffer+PACKET_HEADER_SIZE+1+ii*sizeof(float), 
 				&value, sizeof(float));
 	}
-	Serial.write(pack->buffer, pack->packet_size);
+	Serial.write(pack->buffer, *(pack->p_packet_size));
 	delete pack;
 }
 
@@ -217,7 +217,7 @@ void loop ()
 					if (psize > 2048) psize = 2048;
 					if (dsize > psize) dsize = psize;
 					currpacket = new packet(dsize, tag, psize);
-					currpacket->buffer[PACKET_HEADER_CHECKSUM] = checksum;
+					*(currpacket->p_checksum) = checksum;
 					packetind = 0;
 				}
 			} else {
