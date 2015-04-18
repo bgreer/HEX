@@ -9,6 +9,7 @@
 
 using namespace std;
 
+#define TURN_TOL 0.05
 #define SIZE 128
 
 double getTime()
@@ -31,6 +32,7 @@ int main(void)
 	float pos, target[3], avgtemp;
 	float phase, xpos, zpos, fdf;
 	double time, dt, lasttime, modtime, modtime2, speed;
+	float leftsweep, rightsweep, turning;
 	unsigned char chk;
 
 	ser.init_old("/dev/ttyUSB0", false);
@@ -78,6 +80,24 @@ int main(void)
 	// max useable speed is 2.0 -> 1 foot per second
 	speed = 1.0; // in cycles per second
 	fdf = 0.55; // foot-down fraction
+	// differential sweep is where legs on one side step farther than the other side
+	// this allows for turning.
+	// the max sweep should be 5x what the bezier curve gives in the x-direction
+	// leftsweep,rightsweep should be [-1,1]
+	// one of them should always be maxed out, any lower is just a slower walking speed
+	turning = -0.5; // [-1,1], rotation in z-axis
+
+	// set sweeps
+	leftsweep = 1.0;
+	rightsweep = 1.0;
+	if (turning < -TURN_TOL)
+	{
+		leftsweep = 1.0;
+		rightsweep = 1.0 + 2.*turning;
+	} else if (turning > TURN_TOL) {
+		leftsweep = 1.0 - 2.*turning;
+		rightsweep = 1.0;
+	}
 
 	// get ready to ask for data
 	pack_ask = new packet(16, 'D', 128);
@@ -100,11 +120,15 @@ int main(void)
 			if (modtime2 < fdf) hex.b2d_walk_down.getPos(modtime2/fdf, &xpos, &zpos);
 			else hex.b2d_walk_up.getPos((modtime2-fdf)/(1.-fdf), &xpos, &zpos);
 
-			target[0] = hex.legpos[ik][0]*1.5 + 5.0*xpos;
+			// x position
+			if (ik < 3) target[0] = hex.legpos[ik][0]*1.5 + 5.0*xpos*leftsweep;
+			else target[0] = hex.legpos[ik][0]*1.5 + 5.0*xpos*rightsweep;
+			// y position
 			if (ik < 3) target[1] = 14.0;
 			else target[1] = -14.0;
 			if (ik == 1) target[1] = 16.0;
 			if (ik == 4) target[1] = -16.0;
+			// z position
 			target[2] = -11.0 + zpos*2.0;
 
 			//target[2] += 2.0*sin(time*4);
@@ -148,47 +172,6 @@ int main(void)
 		if (modtime > 1.0) modtime -= 1.0;
 		if (modtime < 0.0) modtime += 1.0;
 	}
-
-/*
-	for (ii=0; ii<500; ii++)
-	{
-		target[0] = 100.0*cos(2.*3.14159*ii/300.);
-		target[1] = 100.*sin(2.*3.14159*ii/300.);
-		target[2] = 0.0;
-		ind = PACKET_HEADER_SIZE;
-		for (ij=0; ij<6; ij++)
-		{
-			hex.IKSolve(ij,target);
-			if (true)
-			{
-				pos = hex.angle[ij*3+0];
-				cout << pos << " ";
-				memcpy(pack->buffer+ind, &pos, sizeof(float));
-				ind += sizeof(float);
-				pos = hex.angle[ij*3+1];
-				cout << pos << " ";
-				memcpy(pack->buffer+ind, &pos, sizeof(float));
-				ind += sizeof(float);
-				pos = hex.angle[ij*3+2];
-				cout << pos << " ";
-				memcpy(pack->buffer+ind, &pos, sizeof(float));
-				ind += sizeof(float);
-			}
-		}
-			cout << endl;
-		
-		for (ij=0; ij<18; ij++)
-		{
-			pos = 150.0 + 20.*sin(2.*3.14159*(ii/100. + ij/6.));
-			//memcpy(pack->buffer+PACKET_HEADER_SIZE+ij*sizeof(float),&pos, sizeof(float));
-		}
-		
-		pack->buffer[psize-1] = '\n';
-
-		ser.send(pack);
-		usleep(20*1000);
-	}
-	*/
 
 	delete pack;
 	ser.close();
