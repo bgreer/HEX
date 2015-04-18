@@ -2,6 +2,8 @@
 #include "/home/bgreer/PROJECTS/HEX/LIB_AXSERVO/axservo.h"
 #include "/home/bgreer/PROJECTS/HEX/LIB_PACKET/packet.h"
 
+#define READ_BUFFER_SIZE 128
+#define PREBUFF_SIZE 1024
 #define NUM_SERVOS 18
 #define LOOP_DELAY 1
 
@@ -34,7 +36,8 @@ int idmap[NUM_SERVOS];
 
 packet *currpacket;
 int packetstart, headercount, psize, dsize, packetind;
-unsigned char readbuffer[1024];
+unsigned char readbuffer[READ_BUFFER_SIZE], prebuff[PREBUFF_SIZE];
+unsigned char sendbuff[128];
 unsigned char buffer[10], tag, checksum;
 bool packetloading;
 
@@ -68,7 +71,7 @@ void sendData()
 	// determines what data to collect
 	flag = (uint8_t)currpacket->buffer[PACKET_HEADER_SIZE];
 
-	pack = new packet(NUM_SERVOS*sizeof(float)+1, 'E', 64);
+	pack = new packet(NUM_SERVOS*sizeof(float)+1, 'E', 0, sendbuff);
 	pack->buffer[PACKET_HEADER_SIZE] = flag;
 	for (ii=0; ii<NUM_SERVOS; ii++)
 	{
@@ -96,6 +99,7 @@ void sendData()
 	}
 	Serial.write(pack->buffer, *(pack->p_packet_size));
 	delete pack;
+	memset(sendbuff, 0x00, 128);
 }
 
 void parsePacket ()
@@ -185,7 +189,7 @@ void loop ()
 
 	// listen for packets
 	nbytes = 0;
-	while (Serial.available() && nbytes < 1024)
+	while (Serial.available() && nbytes < READ_BUFFER_SIZE)
 	{
 		readbuffer[nbytes] = Serial.read();
 		nbytes++;
@@ -206,6 +210,7 @@ void loop ()
 			if (packetloading) // we were already loading a packet
 			{
 				delete currpacket;
+				memset(prebuff, 0x00, PREBUFF_SIZE);
 				packetloading = false;
 			}
 			packetloading = true;
@@ -224,7 +229,7 @@ void loop ()
 					memcpy(&checksum, buffer+9, 1);
 					if (psize > 2048) psize = 2048;
 					if (dsize > psize) dsize = psize;
-					currpacket = new packet(dsize, tag, psize);
+					currpacket = new packet(dsize, tag, psize, prebuff);
 					*(currpacket->p_checksum) = checksum;
 					packetind = 0;
 				}
@@ -235,6 +240,7 @@ void loop ()
 				{
 					parsePacket();
 					delete currpacket;
+					memset(prebuff, 0x00, PREBUFF_SIZE);
 					packetloading = false;
 					packetind = 0;
 				}
