@@ -26,13 +26,16 @@ public:
 	// pointers to sections of the main buffer:
 	int *p_packet_size, *p_data_size;
 	unsigned char *p_checksum, *p_tag, *data;
+	bool usingprebuff;
 
 	// CONSTRUCTOR
-	packet (int datasize, unsigned char tag, int nearest=0);
+	packet (int datasize, unsigned char tag, int nearest=0, 
+			unsigned char* prebuff = NULL);
 
 	~packet ()
 	{
-		free(buffer);
+		if (!usingprebuff)
+			free(buffer);
 	}
 	unsigned char getTag ();
 	void setTag (unsigned char newtag);

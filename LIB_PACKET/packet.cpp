@@ -1,7 +1,8 @@
 //#include "/home/ubuntu/PROJECTS/HEX/LIB_PACKET/packet.h"
 #include "packet.h"
 
-packet::packet (int datasize, unsigned char tag, int nearest)
+packet::packet (int datasize, unsigned char tag, int nearest, 
+		unsigned char* prebuff)
 {
 	int dsize, psize;
 
@@ -15,7 +16,14 @@ packet::packet (int datasize, unsigned char tag, int nearest)
 		psize = (int)((dsize+PACKET_HEADER_SIZE+PACKET_FOOTER_SIZE)/nearest + 1)*nearest;
 
 	// allocate space for everything
-	buffer = (unsigned char*) malloc(psize*sizeof(unsigned char));
+	if (prebuff == NULL)
+	{
+		usingprebuff = false;
+		buffer = (unsigned char*) malloc(psize*sizeof(unsigned char));
+	} else {
+		usingprebuff = true;
+		buffer = prebuff;
+	}
 	// clear memory, just in case
 	memset(buffer, 0x00, sizeof(unsigned char) * psize);
 	// set first 3 bytes as 0x11, used to identify incoming packets
