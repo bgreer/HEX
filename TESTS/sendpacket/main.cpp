@@ -78,30 +78,19 @@ int main(void)
 	ser.send(pack);
 
 	// max useable speed is 2.0 -> 1 foot per second
-	speed = 1.0; // in cycles per second
+	speed = 0.8; // in cycles per second
 	fdf = 0.55; // foot-down fraction
 	// differential sweep is where legs on one side step farther than the other side
 	// this allows for turning.
 	// the max sweep should be 5x what the bezier curve gives in the x-direction
 	// leftsweep,rightsweep should be [-1,1]
 	// one of them should always be maxed out, any lower is just a slower walking speed
-	turning = -0.5; // [-1,1], rotation in z-axis
+	turning = -1.0; // [-1,1], rotation in z-axis
 
-	// set sweeps
-	leftsweep = 1.0;
-	rightsweep = 1.0;
-	if (turning < -TURN_TOL)
-	{
-		leftsweep = 1.0;
-		rightsweep = 1.0 + 2.*turning;
-	} else if (turning > TURN_TOL) {
-		leftsweep = 1.0 - 2.*turning;
-		rightsweep = 1.0;
-	}
 
 	// get ready to ask for data
 	pack_ask = new packet(16, 'D', 128);
-	pack_ask->data[0] = 2;
+	pack_ask->data[0] = 5;
 	pack_data = NULL;
 	ser.send(pack_ask);
 	
@@ -112,6 +101,19 @@ int main(void)
 	lasttime = getTime();
 	while (time < 120.0)
 	{
+		turning = 0.5*sin(time*2.*3.14/5.);
+		// set sweeps
+		leftsweep = 1.0;
+		rightsweep = 1.0;
+		if (turning < -TURN_TOL)
+		{
+			leftsweep = 1.0;
+			rightsweep = 1.0 + 2.*turning;
+		} else if (turning > TURN_TOL) {
+			leftsweep = 1.0 - 2.*turning;
+			rightsweep = 1.0;
+		}
+
 		for (ik=0; ik<6; ik++)
 		{
 			phase = (3.14159)*ik;
@@ -121,15 +123,15 @@ int main(void)
 			else hex.b2d_walk_up.getPos((modtime2-fdf)/(1.-fdf), &xpos, &zpos);
 
 			// x position
-			if (ik < 3) target[0] = hex.legpos[ik][0]*1.5 + 5.0*xpos*leftsweep;
-			else target[0] = hex.legpos[ik][0]*1.5 + 5.0*xpos*rightsweep;
+			if (ik < 3) target[0] = hex.legpos[ik][0]*1.5 + 4.8*xpos*leftsweep;
+			else target[0] = hex.legpos[ik][0]*1.5 + 4.8*xpos*rightsweep;
 			// y position
 			if (ik < 3) target[1] = 14.0;
 			else target[1] = -14.0;
-			if (ik == 1) target[1] = 16.0;
-			if (ik == 4) target[1] = -16.0;
+			if (ik == 1) target[1] = 18.0;
+			if (ik == 4) target[1] = -18.0;
 			// z position
-			target[2] = -11.0 + zpos*2.0;
+			target[2] = -10.0 + zpos*2.0;
 
 			//target[2] += 2.0*sin(time*4);
 
