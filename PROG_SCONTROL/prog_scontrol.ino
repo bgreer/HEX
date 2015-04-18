@@ -116,13 +116,21 @@ void parsePacket ()
 		case 'D': // get servo data
 			sendData();
 			break;
-		case 'S': // set servo positions
-			setPositions();
-			break;
 		case 'L': // set servo limits
 			setLimits();
 			break;
+		case 'R': // repeat back as a test
+			currpacket->setTag('T');
+			Serial.write(currpacket->buffer, *(currpacket->p_packet_size));
+			break;
+		case 'S': // set servo positions
+			setPositions();
+			break;
+		case 'T': // test message, ignore
+			break;
 	}
+
+	// currpacket will be deleted after this function exits
 }
 
 void setup ()
