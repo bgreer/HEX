@@ -1,15 +1,16 @@
 #include "/home/bgreer/PROJECTS/HEX/LIB_PACKET/packet.h"
 
+#define READ_BUFFER_SIZE 128
+#define PREBUFF_SIZE 1024
 #define LOOP_DELAY 1
 
 // TARGET: UDOO Arduin Due
 
 packet *currpacket;
 int packetstart, headercount, psize, dsize, packetind;
-unsigned char readbuffer[1024];
 unsigned char buffer[10], tag, checksum;
 bool packetloading;
-
+unsigned char readbuffer[READ_BUFFER_SIZE], prebuff[PREBUFF_SIZE];
 
 
 void parsePacket ()
@@ -41,9 +42,9 @@ void setup ()
 {
 	int ii;
 	unsigned char trash;
-	Serial.begin(230400); // connection to i.MX6 processor
+	Serial.begin(115200); // connection to i.MX6 processor
 	Serial.setTimeout(1);
-	//Serial1.begin(115200); // arbotix-m, servo controller
+	Serial1.begin(115200); // arbotix-m, servo controller
 	//Serial2.begin(115200); // teensy 3.1, lidar controller
 	randomSeed(analogRead(0));
 
@@ -60,9 +61,9 @@ void loop ()
 	unsigned char inByte;
 	unsigned long t0, t1;
 
-	// listen for packets on Serial
+	// listen for packets
 	nbytes = 0;
-	while (Serial.available() && nbytes < 1024)
+	while (Serial.available() && nbytes < READ_BUFFER_SIZE)
 	{
 		readbuffer[nbytes] = Serial.read();
 		nbytes++;
@@ -83,6 +84,7 @@ void loop ()
 			if (packetloading) // we were already loading a packet
 			{
 				delete currpacket;
+				memset(prebuff, 0x00, PREBUFF_SIZE);
 				packetloading = false;
 			}
 			packetloading = true;
@@ -101,17 +103,18 @@ void loop ()
 					memcpy(&checksum, buffer+9, 1);
 					if (psize > 2048) psize = 2048;
 					if (dsize > psize) dsize = psize;
-					currpacket = new packet(dsize, tag, psize);
+					currpacket = new packet(dsize, tag, psize, prebuff);
 					*(currpacket->p_checksum) = checksum;
 					packetind = 0;
 				}
 			} else {
 				currpacket->buffer[PACKET_HEADER_SIZE+packetind] = inByte;
 				packetind ++;
-				if (packetind+headercount == dsize) // done loading
+				if (packetind == dsize) // done loading
 				{
 					parsePacket();
 					delete currpacket;
+					memset(prebuff, 0x00, PREBUFF_SIZE);
 					packetloading = false;
 					packetind = 0;
 				}

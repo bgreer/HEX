@@ -6,7 +6,7 @@ void listener_loop (serial *ser)
 	int psize, dsize, ind;
 	bool *ptr, loading;
 	unsigned char *buff, *input, tag;
-	float lasttime, currtime;
+	double lasttime, currtime;
 	struct timeval tv;
 	size_t ret;
 	packet *currpacket;
@@ -50,7 +50,7 @@ void listener_loop (serial *ser)
 		// only check input if we've waited a bit
 		gettimeofday(&tv, NULL);
 		currtime = (tv.tv_sec-1422700000) + tv.tv_usec*1e-6;
-		if (currtime - lasttime > 0.05)
+		if (currtime - lasttime > 0.01)
 		{
 			// check for things to recv
 			in = read(ser->fd, input, INPUT_BUFFER_SIZE);

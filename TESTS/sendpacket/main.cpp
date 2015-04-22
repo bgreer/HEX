@@ -35,7 +35,8 @@ int main(void)
 	float leftsweep, rightsweep, turning;
 	unsigned char chk;
 
-	ser.init_old("/dev/ttyUSB0", false);
+	// UDOO to Due is /dev/ttymxc3
+	ser.init_old("/dev/ttymxc3", false);
 	// before continuing, ask scontroller for servo data
 	// mostly to make sure it's ready to do stuff
 	cout << "Confirming Connection.." << endl;

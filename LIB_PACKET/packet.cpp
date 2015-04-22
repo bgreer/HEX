@@ -12,6 +12,10 @@ packet::packet (int datasize, unsigned char tag, int nearest,
 	dsize = datasize;
 	if (nearest == 0)
 		psize = dsize+PACKET_HEADER_SIZE+PACKET_FOOTER_SIZE;
+	else if (nearest == dsize+PACKET_HEADER_SIZE+PACKET_FOOTER_SIZE)
+		psize = nearest;
+	else if (nearest > dsize+PACKET_HEADER_SIZE+PACKET_FOOTER_SIZE)
+		psize = nearest; // this is dumb logic, but I'm tired
 	else
 		psize = (int)((dsize+PACKET_HEADER_SIZE+PACKET_FOOTER_SIZE)/nearest + 1)*nearest;
 
