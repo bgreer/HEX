@@ -33,10 +33,13 @@ int main(void)
 	// pass messages back and forth as fast as possible
 	cout << "Program Start." << endl;
 	pack = new packet(16, 'R', 0); // reasonable size?
+	pack_data = new packet(18, 'D', 0);
 	
 	for (ii=0; ii<10; ii++)
 	{
 		ser.send(pack, true);
+		usleep(5000);
+		ser.send(pack_data, true);
 		// response should be a test message
 		pack2 = ser.recv('T', true);
 	}

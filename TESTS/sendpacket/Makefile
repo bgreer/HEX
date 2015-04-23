@@ -12,7 +12,7 @@ sendpacket : main.cpp $(SERIAL) $(PACKET) $(HEXAPOD)
 	g++ -std=c++0x -pthread -O2 -o sendpacket main.cpp $(SERIAL) $(PACKET) $(HEXAPOD) -lm
 
 repeater : repeater.cpp $(SERIAL) $(PACKET) $(HEXAPOD)
-	g++ -std=c++0x -pthread -O2 -o repeater repeater.cpp $(SERIAL) $(PACKET) $(HEXAPOD) -lm
+	g++ -std=c++0x -pthread -g -O2 -o repeater repeater.cpp $(SERIAL) $(PACKET) $(HEXAPOD) -lm
 
 clean :
 	rm -f sendpacket repeater

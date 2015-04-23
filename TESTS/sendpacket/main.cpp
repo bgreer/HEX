@@ -79,7 +79,7 @@ int main(void)
 	ser.send(pack);
 
 	// max useable speed is 2.0 -> 1 foot per second
-	speed = 0.8; // in cycles per second
+	speed = 0.4; // in cycles per second
 	fdf = 0.55; // foot-down fraction
 	// differential sweep is where legs on one side step farther than the other side
 	// this allows for turning.
@@ -103,6 +103,7 @@ int main(void)
 	while (time < 120.0)
 	{
 		turning = 0.5*sin(time*2.*3.14/5.);
+		turning = 0.0;
 		// set sweeps
 		leftsweep = 1.0;
 		rightsweep = 1.0;
