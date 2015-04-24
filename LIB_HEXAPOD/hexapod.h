@@ -4,6 +4,7 @@
 #define DEGTORAD 0.01745329251
 #define RADTODEG 57.2957795131
 
+#define TURN_TOL 0.05
 #define MAXITER 300
 // position tolerance in cm
 #define TOLERANCE 0.05
@@ -58,10 +59,16 @@ public:
 	float legang[6]; // root angle of leg
 
 	// for walking
+	float time, speed;
+	float fdf, rightsweep, leftsweep;
+	float turning;
+
+	// for walking
 	bezier2d b2d_walk_up, b2d_walk_down;
 
 	hexapod ();
 
+	void step (float dt);
 	void setAngles ();
 	void setServoAngles ();
 	bool IKSolve (int leg, float *target);

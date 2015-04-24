@@ -1,5 +1,79 @@
 #include "hexapod.h"
 
+void hexapod::step (float dt)
+{
+	int ii;
+	float absspeed, speedsgn;
+	float cycletime, xpos, ypos, zpos, target[3];
+	float sweepmodifier, speedmodifier;
+
+	// to control walking, modify speed and turning
+	absspeed = fabs(speed);
+	speedsgn = 1.0;
+	if (speed < 0.0) speedsgn = -1.0;
+
+	// based on current turning, compute sweeps
+	leftsweep = 1.0;
+	rightsweep = 1.0;
+	if (turning < -TURN_TOL)
+	{
+		leftsweep = 1.0;
+		rightsweep = 1.0 + 2.*turning;
+	} else if (turning > TURN_TOL) {
+		leftsweep = 1.0 - 2.0*turning;
+		rightsweep = 1.0;
+	}
+
+	// walking speed is influenced by leg sweep and movement speed
+	if (absspeed < 0.2)
+	{
+		sweepmodifier = absspeed*0.8/0.2;
+		speedmodifier = 0.25;
+	} else if (absspeed < 0.8) {
+		sweepmodifier = 0.8;
+		speedmodifier = absspeed/sweepmodifier;
+	} else if (absspeed < 1.0) {
+		sweepmodifier = absspeed;
+		speedmodifier = 1.0;
+	} else {
+		sweepmodifier = 1.0;
+		speedmodifier = absspeed;
+	}
+	speedmodifier *= speedsgn;
+
+	// increment fake time
+	time += dt*speedmodifier;
+	if (time > 1.0) time -= 1.0;
+	if (time < 0.0) time += 1.0;
+
+	// loop through each leg to figure out where it should be right now
+	for (ii=0; ii<6; ii++)
+	{
+		// where is this leg in the cycle of stepping?
+		// the 0.5*ii is to completely de-sync legs
+		// the other part is to adjust it more
+		cycletime = fmod(time + 0.5*ii + (legpos[ii][0]-legpos[0][0])*0.0125, 1.0);
+		
+		// use bezier curve to either be up or down
+		if (cycletime < fdf) b2d_walk_down.getPos(cycletime/fdf, &xpos, &zpos);
+		else b2d_walk_up.getPos((cycletime-fdf)/(1.-fdf), &xpos, &zpos);
+
+		// set up the IK target
+		if (ii < 3) target[0] = legpos[ii][0]*1.5 + 4.8*xpos*leftsweep*sweepmodifier;
+		else target[0] = legpos[ii][0]*1.5 + 4.8*xpos*rightsweep*sweepmodifier;
+		if (ii == 0 || ii == 2) target[1] = 14.0;
+		if (ii == 1) target[1] = 18.0;
+		if (ii == 3 || ii == 5) target[1] = -14.0;
+		if (ii == 4) target[1] = -18.0;
+		target[2] = -10.0 + zpos*2.0;
+
+		// perform IK solve
+		IKSolve(ii,target);
+		// TODO: add error handling if IK fails to converge
+	}
+	setServoAngles();
+}
+
 hexapod::hexapod()
 {
 	int ii;
@@ -65,6 +139,12 @@ hexapod::hexapod()
 
 	b2d_walk_down.addPoint(0.83775,0);
 	b2d_walk_down.addPoint(-0.83775,0);
+
+	speed = 0.0;
+	time = 0.0;
+	fdf = 0.55;
+	rightsweep = 0.0;
+	leftsweep = 0.0;
 }
 
 void hexapod::setAngles ()
@@ -173,8 +253,11 @@ bool hexapod::IKSolve (int leg, float *target)
 	}
 
 	// converged?
-	angle[leg*3+1] = fkangles[1];
-	angle[leg*3+2] = fkangles[2];
+	if (converged)
+	{
+		angle[leg*3+1] = fkangles[1];
+		angle[leg*3+2] = fkangles[2];
+	}
 	
 	//if (converged) cout << iter << endl;
 
