@@ -4,6 +4,7 @@
 #define DEGTORAD 0.01745329251
 #define RADTODEG 57.2957795131
 
+#define SS_DURATION 2.0
 #define TURN_TOL 0.05
 #define MAXITER 300
 // position tolerance in cm
@@ -63,11 +64,17 @@ public:
 	float fdf, rightsweep, leftsweep;
 	float turning;
 
+	// for safestand
+	float sstime;
+	bool ssrunning;
+	float ssx0[6], ssy0[6], ssz0[6]; // initial positions
+
 	// for walking
 	bezier2d b2d_walk_up, b2d_walk_down;
 
 	hexapod ();
 
+	void safeStand ();
 	void step (float dt);
 	void setAngles ();
 	void setServoAngles ();

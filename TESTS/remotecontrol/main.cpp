@@ -63,21 +63,13 @@ int main(void)
 	cout << "Angles read." << endl;
 
 	// sit / stand
-	hex.stand();
 	dsize = 100;
 	psize = SIZE;
 	pack = new packet(dsize, 'S', psize);
-	for (ii=0; ii<18; ii++)
-	{
-		pos = hex.servoangle[ii];
-		memcpy(pack->data+ii*sizeof(float),
-				 &pos, sizeof(float));
-	}
-	ser.send(pack);
 
 	// max useable speed is 2.0 -> 1 foot per second
-	hex.speed = 0.4; // in cycles per second
-	hex.turning = -1.0; // [-1,1], rotation in z-axis
+	hex.speed = 0.0; // in cycles per second
+	hex.turning = 0.0; // [-1,1], rotation in z-axis
 
 
 	// get ready to ask for data
@@ -90,8 +82,28 @@ int main(void)
 	// IK test
 	time = 0.0;
 	lasttime = getTime();
+	hex.safeStand();
+	while (hex.ssrunning)
+	{
+		dt = (getTime() - lasttime);
+		lasttime = getTime();
+		hex.step(dt);
+		// package positions
+		for (ii=0; ii<18; ii++)
+		{
+			pos = hex.servoangle[ii];
+			memcpy(pack->data+(ii)*sizeof(float), 
+					&pos, sizeof(float));
+		}
+		ser.send(pack);
+		usleep(20*1000);
+
+	}
+	lasttime = getTime();
 	while (time < 120.0)
 	{
+		hex.speed = 0.5*sin(time/3.);
+
 		dt = (getTime() - lasttime);
 		time += dt;
 		lasttime = getTime();

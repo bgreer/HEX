@@ -2,10 +2,59 @@
 
 void hexapod::step (float dt)
 {
-	int ii;
-	float absspeed, speedsgn;
+	int ii, modt;
+	float absspeed, speedsgn, ssfrac, ssfrac2;
 	float cycletime, xpos, ypos, zpos, target[3];
-	float sweepmodifier, speedmodifier;
+	float sweepmodifier, speedmodifier, legraise;
+
+	if (ssrunning)
+	{
+		sstime += dt;
+		ssfrac = sstime/SS_DURATION;
+		for (ii=0; ii<6; ii++)
+		{
+			// compute final target
+			target[0] = legpos[ii][0]*1.5;
+			if (ii == 0 || ii == 2) target[1] = 14.0;
+			if (ii == 1) target[1] = 18.0;
+			if (ii == 3 || ii == 5) target[1] = -14.0;
+			if (ii == 4) target[1] = -18.0;
+			target[2] = -10.;
+			// given final target, turn into current target
+			if (ssfrac < 0.5)
+			{
+				ssfrac2 = ssfrac*2.0;
+				if (ii % 2 == 0)
+				{
+					target[0] = ssx0[ii] + ssfrac2*(target[0]-ssx0[ii]);
+					target[1] = ssy0[ii] + ssfrac2*(target[1]-ssy0[ii]);
+					target[2] = ssz0[ii] + ssfrac2*(target[2]-ssz0[ii]) + 
+						2.0*pow(sin(3.1416*ssfrac2),2);
+				} else {
+					target[0] = ssx0[ii];
+					target[1] = ssy0[ii];
+					target[2] = ssz0[ii];
+				}
+			} else {
+				ssfrac2 = (ssfrac-0.5)*2.0;
+				if (ii % 2 == 0)
+				{
+					// don't modify targets
+				} else {
+					target[0] = ssx0[ii] + ssfrac2*(target[0]-ssx0[ii]);
+					target[1] = ssy0[ii] + ssfrac2*(target[1]-ssy0[ii]);
+					target[2] = ssz0[ii] + ssfrac2*(target[2]-ssz0[ii]) +
+						2.0*pow(sin(3.1416*ssfrac2),2);
+				}
+			}
+			IKSolve(ii,target);
+		}
+		if (sstime > SS_DURATION)
+		{
+			ssrunning = false;
+			sstime = 0.0;
+		}
+	} else {
 
 	// to control walking, modify speed and turning
 	absspeed = fabs(speed);
@@ -25,8 +74,10 @@ void hexapod::step (float dt)
 	}
 
 	// walking speed is influenced by leg sweep and movement speed
+	legraise = 1.0;
 	if (absspeed < 0.2)
 	{
+		legraise = absspeed/0.2;
 		sweepmodifier = absspeed*0.8/0.2;
 		speedmodifier = 0.25;
 	} else if (absspeed < 0.8) {
@@ -65,13 +116,57 @@ void hexapod::step (float dt)
 		if (ii == 1) target[1] = 18.0;
 		if (ii == 3 || ii == 5) target[1] = -14.0;
 		if (ii == 4) target[1] = -18.0;
-		target[2] = -10.0 + zpos*2.0;
+		target[2] = -10.0 + zpos*2.0*legraise;
 
 		// perform IK solve
 		IKSolve(ii,target);
 		// TODO: add error handling if IK fails to converge
 	}
+
+	if (ssrunning)
+	{
+		sstime += dt;
+		ssfrac = sstime/3.0;
+		for (ii=0; ii<6; ii++)
+		{
+			// compute final target
+			target[0] = legpos[ii][0]*1.5;
+			if (ii == 0 || ii == 2) target[1] = 14.0;
+			if (ii == 1) target[1] = 18.0;
+			if (ii == 3 || ii == 5) target[1] = -14.0;
+			if (ii == 4) target[1] = -18.0;
+			target[2] = -10.;
+			// given final target, turn into current target
+			target[0] = ssx0[ii] + ssfrac*(target[0]-ssx0[ii]);
+			target[1] = ssy0[ii] + ssfrac*(target[1]-ssy0[ii]);
+			target[2] = ssz0[ii] + ssfrac*(target[2]-ssz0[ii]);
+			IKSolve(ii,target);
+		}
+		if (sstime > 3.0) ssrunning = false;
+	}
+	}
 	setServoAngles();
+}
+
+void hexapod::safeStand ()
+{
+	int ii;
+	float fkangles[3], fkpos[3];
+
+	// initialize
+	sstime = 0.0;
+	ssrunning = true;
+	// store FK leg positions
+	for (ii=0; ii<6; ii++)
+	{
+		fkangles[0] = angle[ii*3+0];
+		fkangles[1] = angle[ii*3+1];
+		fkangles[2] = angle[ii*3+2];
+		FKSolve(ii,fkangles,fkpos);
+		ssx0[ii] = fkpos[0];
+		ssy0[ii] = fkpos[1];
+		ssz0[ii] = fkpos[2];
+	}
 }
 
 hexapod::hexapod()
