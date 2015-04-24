@@ -4,9 +4,23 @@
 #include <thread>
 #include <cmath>
 #include <iomanip>
+#include <SDL.h>
 #include "/home/bgreer/PROJECTS/HEX/LIB_SERIAL/serial.h"
 #include "/home/bgreer/PROJECTS/HEX/LIB_HEXAPOD/hexapod.h"
 
+/* buttons:
+ * 	0 = A - flight mode != landed
+ * 		1 = B - flight mode = landed
+ * 			2 = X - resend user controls
+ * 				3 = Y - cycle flight mode
+ * 					4 = LB - thrust mode
+ * 						5 = RB - set thrust zero point
+ * 							6 = Select - send stats
+ * 								7 = Start - arm motors
+ * 									8 = XBOX - kill switch
+ * 										9 = Left Axis
+ * 											10 = Right Axis
+ * 											*/
 using namespace std;
 
 #define SIZE 128
@@ -27,13 +41,59 @@ int main(void)
 	serial ser;
 	packet *pack, *pack2, *pack_ask, *pack_data;
 	hexapod hex;
+	SDL_Surface *screen;
+	SDL_Event event;
+	SDL_Joystick *joy;
 	int dsize, psize;
 	double time, lasttime, dt;
 	float pos, avgtemp;
 	unsigned char chk;
+	bool cont, quit;
+
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0)
+	{
+		cout << "ERROR in SDL init: " << SDL_GetError() << endl;
+		return -1;
+	}
+	atexit(SDL_Quit);
+	screen = SDL_SetVideoMode(800, 480, 32, SDL_NOFRAME | SDL_FULLSCREEN);
+	SDL_ShowCursor(0);
+	SDL_JoystickEventState(SDL_ENABLE);
+	// sort out joystick control
+	if (SDL_NumJoysticks()>0)
+	{
+		joy=SDL_JoystickOpen(0);
+		if (joy)
+		{
+			cout << "Joystick Connected." << endl;
+		} else {
+			cout << "ERROR: could not connect to joystick!" << endl;
+			return -1;
+		}
+	} else {
+		cout << "ERROR: could not find joystick!" << endl;
+		return -1;
+	}
 
 	// UDOO to Due is /dev/ttymxc3
 	ser.init_old("/dev/ttymxc3", false);
+	
+	cout << "Press Start to connect." << endl;
+	cont = false;
+	while (!cont)
+	{
+		while (SDL_PollEvent(&event))
+		{
+			switch (event.type)
+			{
+				case SDL_JOYBUTTONDOWN:
+					if (event.jbutton.button == 7) cont = true;
+					break;
+			}
+		}
+		SDL_Delay(10);
+	}
+	
 	// before continuing, ask scontroller for servo data
 	// mostly to make sure it's ready to do stuff
 	cout << "Confirming Connection.." << endl;
