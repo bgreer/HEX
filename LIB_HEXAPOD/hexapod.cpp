@@ -55,11 +55,14 @@ void hexapod::step (float dt)
 			sstime = 0.0;
 		}
 	} else {
+	
+		// make sure speed doesnt change too rapidly
+	smoothspeed = 0.9*smoothspeed + 0.1*speed;
 
 	// to control walking, modify speed and turning
-	absspeed = fabs(speed);
+	absspeed = fabs(smoothspeed);
 	speedsgn = 1.0;
-	if (speed < 0.0) speedsgn = -1.0;
+	if (smoothspeed < 0.0) speedsgn = -1.0;
 
 	// based on current turning, compute sweeps
 	leftsweep = 1.0;
@@ -236,6 +239,7 @@ hexapod::hexapod()
 	b2d_walk_down.addPoint(-0.83775,0);
 
 	speed = 0.0;
+	smoothspeed = 0.0;
 	time = 0.0;
 	fdf = 0.55;
 	rightsweep = 0.0;

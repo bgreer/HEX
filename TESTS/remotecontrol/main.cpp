@@ -46,7 +46,7 @@ int main(void)
 	SDL_Joystick *joy;
 	int dsize, psize;
 	double time, lasttime, dt;
-	float pos, avgtemp;
+	float pos, avgtemp, joyval;
 	unsigned char chk;
 	bool cont, quit;
 
@@ -160,10 +160,9 @@ int main(void)
 
 	}
 	lasttime = getTime();
-	while (time < 120.0)
+	quit = false;
+	while (!quit)
 	{
-		hex.speed = 0.5*sin(time/3.);
-
 		dt = (getTime() - lasttime);
 		time += dt;
 		lasttime = getTime();
@@ -176,8 +175,8 @@ int main(void)
 					&pos, sizeof(float));
 		}
 		ser.send(pack);
-		usleep(20*1000);
 		// ask for data?
+		/*
 		if ((pack2=ser.recv('E',false)) != NULL)
 		{
 			avgtemp = 0.0;
@@ -193,7 +192,35 @@ int main(void)
 			pack2 = NULL;
 			ser.send(pack_ask);
 		}
+		*/
+		while (SDL_PollEvent(&event))
+		{
+			switch (event.type)
+			{
+				case SDL_JOYBUTTONDOWN:
+					if (event.jbutton.button == 7) quit = true;
+					break;
+				case SDL_JOYAXISMOTION:
+					joyval = event.jaxis.value/32767.;
+					if (event.jaxis.axis == 1)
+					{
+						if (joyval > 0.1) hex.speed = joyval - 0.1;
+						else if (joyval < -0.1) hex.speed = joyval + 0.1;
+						else hex.speed = 0.0;
+					}
+					if (event.jaxis.axis == 2)
+					{
+						if (joyval > 0.1) hex.turning = (joyval-0.1)*0.25;
+						else if (joyval < -0.1) hex.turning = (joyval+0.1)*0.25;
+						else hex.turning = 0.0;
+					}
+					break;
+			}
+		}
+		SDL_Delay(20);
 	}
+
+	cout << "Quitting.." << endl;
 
 	delete pack;
 	ser.close();

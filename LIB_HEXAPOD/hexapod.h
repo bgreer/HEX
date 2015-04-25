@@ -61,7 +61,7 @@ public:
 
 	// for walking
 	float time, speed;
-	float fdf, rightsweep, leftsweep;
+	float smoothspeed, fdf, rightsweep, leftsweep;
 	float turning;
 
 	// for safestand
