@@ -57,7 +57,7 @@ void hexapod::step (float dt)
 	} else {
 	
 		// make sure speed doesnt change too rapidly
-	smoothspeed = 0.9*smoothspeed + 0.1*speed;
+	smoothspeed = 0.99*smoothspeed + 0.01*speed;
 
 	// to control walking, modify speed and turning
 	absspeed = fabs(smoothspeed);
@@ -78,9 +78,10 @@ void hexapod::step (float dt)
 
 	// walking speed is influenced by leg sweep and movement speed
 	legraise = 1.0;
+	if (absspeed < 0.05) 
+		legraise = absspeed/0.05;
 	if (absspeed < 0.2)
 	{
-		legraise = absspeed/0.2;
 		sweepmodifier = absspeed*0.8/0.2;
 		speedmodifier = 0.25;
 	} else if (absspeed < 0.8) {
@@ -126,27 +127,6 @@ void hexapod::step (float dt)
 		// TODO: add error handling if IK fails to converge
 	}
 
-	if (ssrunning)
-	{
-		sstime += dt;
-		ssfrac = sstime/3.0;
-		for (ii=0; ii<6; ii++)
-		{
-			// compute final target
-			target[0] = legpos[ii][0]*1.5;
-			if (ii == 0 || ii == 2) target[1] = 14.0;
-			if (ii == 1) target[1] = 18.0;
-			if (ii == 3 || ii == 5) target[1] = -14.0;
-			if (ii == 4) target[1] = -18.0;
-			target[2] = -10.;
-			// given final target, turn into current target
-			target[0] = ssx0[ii] + ssfrac*(target[0]-ssx0[ii]);
-			target[1] = ssy0[ii] + ssfrac*(target[1]-ssy0[ii]);
-			target[2] = ssz0[ii] + ssfrac*(target[2]-ssz0[ii]);
-			IKSolve(ii,target);
-		}
-		if (sstime > 3.0) ssrunning = false;
-	}
 	}
 	setServoAngles();
 }
