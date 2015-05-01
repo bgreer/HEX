@@ -4,6 +4,7 @@
 #define DEGTORAD 0.01745329251
 #define RADTODEG 57.2957795131
 
+#define MAX_SPEED 1.5
 #define SS_DURATION 2.0
 #define TURN_TOL 0.05
 #define MAXITER 300
@@ -57,12 +58,13 @@ public:
 	float femurangle, tibiaangle;
 	float angleub[3], anglelb[3]; // angle bounds
 	float legpos[6][3]; // root of leg in xyz
+	float legpos1[6][3]; // default resting position of leg
 	float legang[6]; // root angle of leg
 
 	// for walking
 	float time, speed;
-	float smoothspeed, fdf, rightsweep, leftsweep;
-	float turning;
+	float smoothspeed, fdf;
+	float turning, smoothturning;
 
 	// for safestand
 	float sstime;

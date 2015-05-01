@@ -210,8 +210,8 @@ int main(void)
 					}
 					if (event.jaxis.axis == 2)
 					{
-						if (joyval > 0.1) hex.turning = (joyval-0.1)*0.25;
-						else if (joyval < -0.1) hex.turning = (joyval+0.1)*0.25;
+						if (joyval > 0.1) hex.turning = (joyval-0.1);
+						else if (joyval < -0.1) hex.turning = (joyval+0.1);
 						else hex.turning = 0.0;
 					}
 					break;

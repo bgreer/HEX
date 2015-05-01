@@ -6,6 +6,43 @@ void hexapod::step (float dt)
 	float absspeed, speedsgn, ssfrac, ssfrac2;
 	float cycletime, xpos, ypos, zpos, target[3];
 	float sweepmodifier, speedmodifier, legraise;
+	float turn_dist, thtpos, rpos, maxsweep, maxdist;
+	float dist, tht0;
+
+	// clamp speed and turning, just in case
+	if (speed > MAX_SPEED) speed = MAX_SPEED;
+	if (speed < -MAX_SPEED) speed = -MAX_SPEED;
+	if (turning > 1.0) turning = 1.0;
+	if (turning < -1.0) turning = -1.0;
+	
+	// make sure speed doesnt change too rapidly
+	smoothspeed = 0.95*smoothspeed + 0.05*speed;
+	smoothturning = 0.95*smoothturning + 0.05*turning;
+
+	// to control walking, modify speed and turning
+	absspeed = fabs(smoothspeed);
+	speedsgn = 1.0;
+	if (smoothspeed < 0.0) speedsgn = -1.0;
+
+	// walking speed is influenced by leg sweep and movement speed
+	legraise = 1.0;
+	if (absspeed < 0.05) 
+		legraise = absspeed/0.05;
+	if (absspeed < 0.2)
+	{
+		sweepmodifier = absspeed*0.8/0.2;
+		speedmodifier = 0.25;
+	} else if (absspeed < 0.8) {
+		sweepmodifier = 0.8;
+		speedmodifier = absspeed/sweepmodifier;
+	} else if (absspeed < 1.0) {
+		sweepmodifier = absspeed;
+		speedmodifier = 1.0;
+	} else {
+		sweepmodifier = 1.0;
+		speedmodifier = absspeed;
+	}
+	speedmodifier *= speedsgn;
 
 	if (ssrunning)
 	{
@@ -19,6 +56,8 @@ void hexapod::step (float dt)
 			if (ii == 1) target[1] = 18.0;
 			if (ii == 3 || ii == 5) target[1] = -14.0;
 			if (ii == 4) target[1] = -18.0;
+			target[0] = legpos1[ii][0];
+			target[1] = legpos1[ii][1];
 			target[2] = -10.;
 			// given final target, turn into current target
 			if (ssfrac < 0.5)
@@ -56,45 +95,19 @@ void hexapod::step (float dt)
 		}
 	} else {
 	
-		// make sure speed doesnt change too rapidly
-	smoothspeed = 0.99*smoothspeed + 0.01*speed;
 
-	// to control walking, modify speed and turning
-	absspeed = fabs(smoothspeed);
-	speedsgn = 1.0;
-	if (smoothspeed < 0.0) speedsgn = -1.0;
-
-	// based on current turning, compute sweeps
-	leftsweep = 1.0;
-	rightsweep = 1.0;
-	if (turning < -TURN_TOL)
+	// based on current turning, compute turning math
+	turn_dist = 1e5;
+	if (fabs(smoothturning) > TURN_TOL) turn_dist = tan((1.0-smoothturning)*3.1416/2.0)*50.;
+	// compute dist between turn_dist and farthest leg
+	maxdist = 0.0;
+	for (ii=0; ii<6; ii++)
 	{
-		leftsweep = 1.0;
-		rightsweep = 1.0 + 2.*turning;
-	} else if (turning > TURN_TOL) {
-		leftsweep = 1.0 - 2.0*turning;
-		rightsweep = 1.0;
+		dist = sqrt(pow(legpos1[ii][0],2) + pow(legpos1[ii][1]-turn_dist,2));
+		if (dist > maxdist) maxdist = dist;
 	}
-
-	// walking speed is influenced by leg sweep and movement speed
-	legraise = 1.0;
-	if (absspeed < 0.05) 
-		legraise = absspeed/0.05;
-	if (absspeed < 0.2)
-	{
-		sweepmodifier = absspeed*0.8/0.2;
-		speedmodifier = 0.25;
-	} else if (absspeed < 0.8) {
-		sweepmodifier = 0.8;
-		speedmodifier = absspeed/sweepmodifier;
-	} else if (absspeed < 1.0) {
-		sweepmodifier = absspeed;
-		speedmodifier = 1.0;
-	} else {
-		sweepmodifier = 1.0;
-		speedmodifier = absspeed;
-	}
-	speedmodifier *= speedsgn;
+	maxsweep = 10.*sweepmodifier/maxdist;
+	if (turn_dist < 0.0) maxsweep = -maxsweep;
 
 	// increment fake time
 	time += dt*speedmodifier;
@@ -110,17 +123,26 @@ void hexapod::step (float dt)
 		cycletime = fmod(time + 0.5*ii + (legpos[ii][0]-legpos[0][0])*0.0125, 1.0);
 		
 		// use bezier curve to either be up or down
-		if (cycletime < fdf) b2d_walk_down.getPos(cycletime/fdf, &xpos, &zpos);
-		else b2d_walk_up.getPos((cycletime-fdf)/(1.-fdf), &xpos, &zpos);
+		if (cycletime < fdf) b2d_walk_down.getPos(cycletime/fdf, &thtpos, &zpos);
+		else b2d_walk_up.getPos((cycletime-fdf)/(1.-fdf), &thtpos, &zpos);
+		// convert thtpos into angle?
+		thtpos *= maxsweep;
+		if (turn_dist < 0.0) thtpos = -thtpos;
+		//cout << ii << " " << time << " " << thtpos << endl;
+
+		// convert rpos to xpos,ypos
+		dist = sqrt(pow(legpos1[ii][0],2) + pow(legpos1[ii][1]-turn_dist,2));
+		tht0 = atan2(legpos1[ii][1]-turn_dist,legpos1[ii][0]);
+		xpos = dist*cos(thtpos+tht0);
+		ypos = turn_dist + dist*sin(thtpos+tht0);
+
+	//	cout << ii << " " << xpos << " " << ypos << " " << tht0 << endl;
 
 		// set up the IK target
-		if (ii < 3) target[0] = legpos[ii][0]*1.5 + 4.8*xpos*leftsweep*sweepmodifier;
-		else target[0] = legpos[ii][0]*1.5 + 4.8*xpos*rightsweep*sweepmodifier;
-		if (ii == 0 || ii == 2) target[1] = 14.0;
-		if (ii == 1) target[1] = 18.0;
-		if (ii == 3 || ii == 5) target[1] = -14.0;
-		if (ii == 4) target[1] = -18.0;
+		target[0] = xpos;
+		target[1] = ypos;
 		target[2] = -10.0 + zpos*2.0*legraise;
+
 
 		// perform IK solve
 		IKSolve(ii,target);
@@ -205,6 +227,14 @@ hexapod::hexapod()
 	legang[4] =-90.0*DEGTORAD;
 	legang[5] =-135.0*DEGTORAD;
 
+	// default target for each leg
+	for (ii=0; ii<6; ii++)
+	{
+		legpos1[ii][0] = legpos[ii][0] + 12.0 * cos(legang[ii]);
+		legpos1[ii][1] = legpos[ii][1] + 12.0 * sin(legang[ii]);
+		legpos1[ii][2] = -10.0;
+	}
+
 	// initialize bezier curve gait
 	// goes from +-1 in x and 0 to 1 in z
 	b2d_walk_up.addPoint(-0.83775,0);
@@ -222,8 +252,6 @@ hexapod::hexapod()
 	smoothspeed = 0.0;
 	time = 0.0;
 	fdf = 0.55;
-	rightsweep = 0.0;
-	leftsweep = 0.0;
 }
 
 void hexapod::setAngles ()
