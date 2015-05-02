@@ -98,7 +98,10 @@ void hexapod::step (float dt)
 
 	// based on current turning, compute turning math
 	turn_dist = 1e5;
-	if (fabs(smoothturning) > TURN_TOL) turn_dist = tan((1.0-smoothturning)*3.1416/2.0)*50.;
+	if (fabs(smoothturning) < TURN_TOL)
+		turn_dist = tan((1.0-TURN_TOL)*3.1416/2.0)*50.;
+	if (fabs(smoothturning) > TURN_TOL)
+		turn_dist = tan((1.0-smoothturning)*3.1416/2.0)*50.;
 	// compute dist between turn_dist and farthest leg
 	maxdist = 0.0;
 	for (ii=0; ii<6; ii++)
@@ -106,7 +109,7 @@ void hexapod::step (float dt)
 		dist = sqrt(pow(legpos1[ii][0],2) + pow(legpos1[ii][1]-turn_dist,2));
 		if (dist > maxdist) maxdist = dist;
 	}
-	maxsweep = 10.*sweepmodifier/maxdist;
+	maxsweep = 8.*sweepmodifier/maxdist;
 	if (turn_dist < 0.0) maxsweep = -maxsweep;
 
 	// increment fake time
@@ -127,7 +130,7 @@ void hexapod::step (float dt)
 		else b2d_walk_up.getPos((cycletime-fdf)/(1.-fdf), &thtpos, &zpos);
 		// convert thtpos into angle?
 		thtpos *= maxsweep;
-		if (turn_dist < 0.0) thtpos = -thtpos;
+//		if (turn_dist < 0.0) thtpos = -thtpos;
 		//cout << ii << " " << time << " " << thtpos << endl;
 
 		// convert rpos to xpos,ypos
