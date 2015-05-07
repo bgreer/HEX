@@ -8,18 +8,18 @@
 #include "/home/bgreer/PROJECTS/HEX/LIB_SERIAL/serial.h"
 #include "/home/bgreer/PROJECTS/HEX/LIB_HEXAPOD/hexapod.h"
 
-/* buttons:
- * 	0 = A - flight mode != landed
- * 		1 = B - flight mode = landed
- * 			2 = X - resend user controls
- * 				3 = Y - cycle flight mode
- * 					4 = LB - thrust mode
- * 						5 = RB - set thrust zero point
- * 							6 = Select - send stats
- * 								7 = Start - arm motors
- * 									8 = XBOX - kill switch
- * 										9 = Left Axis
- * 											10 = Right Axis
+/* xboxdrv button ids for xbox 360 controller:
+ * 0 = A
+ * 1 = B
+ * 2 = X
+ * 3 = Y
+ * 4 = LB
+ * 5 = RB
+ * 6 = Select
+ * 7 = Start
+ * 8 = XBOX
+ * 9 = Left Stick Click
+ * 10 = Right Stick Click
  * 											*/
 using namespace std;
 
