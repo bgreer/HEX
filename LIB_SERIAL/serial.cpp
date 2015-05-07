@@ -2,9 +2,9 @@
 
 void listener_loop (serial *ser)
 {
-	int ii, size, in, start;
-	int psize, dsize, ind;
-	bool *ptr, loading;
+	int ii, size, in, start, oldstart;
+	int psize, dsize, ind, input_offset;
+	bool *ptr, loading, trigger_input_reset;
 	unsigned char *buff, *input, tag;
 	double lasttime, currtime;
 	struct timeval tv;
@@ -14,10 +14,11 @@ void listener_loop (serial *ser)
 	start = 0;
 	loading = false;
 	input = new unsigned char [INPUT_BUFFER_SIZE];
+	input_offset = 0;
 	gettimeofday(&tv, NULL);
 	currtime = (tv.tv_sec-1422700000) + tv.tv_usec*1e-6;
 	lasttime = currtime;
-
+	trigger_input_reset = false;
 
 	while (ser->listening)
 	{
@@ -52,9 +53,17 @@ void listener_loop (serial *ser)
 		currtime = (tv.tv_sec-1422700000) + tv.tv_usec*1e-6;
 		if (currtime - lasttime > 0.01)
 		{
+			if (trigger_input_reset)
+			{
+				input_offset = 0;
+				trigger_input_reset = false;
+			}
 			// check for things to recv
-			in = read(ser->fd, input, INPUT_BUFFER_SIZE);
-			for (ii=0; ii<in; ii++)
+			if ((in = read(ser->fd, input+input_offset, 
+							INPUT_BUFFER_SIZE-input_offset)) > 0)
+			{
+				oldstart = start;
+			for (ii=0; ii<in+input_offset; ii++)
 			{
 				if (ser->debug) cout << input[ii] << flush;
 				// look for packet start signal
@@ -69,7 +78,7 @@ void listener_loop (serial *ser)
 						loading = false;
 					}
 					// grab rest of header
-					if (ii+PACKET_HEADER_SIZE-3 < in)
+					if (ii+PACKET_HEADER_SIZE-3 < in+input_offset)
 					{
 						memcpy(&psize, input+ii+PACKET_HEADER_PACKET_SIZE-2, sizeof(int));
 						memcpy(&dsize, input+ii+PACKET_HEADER_DATA_SIZE-2, sizeof(int));
@@ -79,8 +88,11 @@ void listener_loop (serial *ser)
 						loading = true;
 						ind = 0;
 						start = 0;
+						trigger_input_reset = true;
 					} else {
-						cout << "WARNING: packet miss" << endl; // TODO prevent this
+						ii = in+input_offset; // skip to end of for loop
+						input_offset = in; // wait for more data
+						start = oldstart;
 					}
 				}
 				if (loading) { // load data into packet
@@ -95,6 +107,7 @@ void listener_loop (serial *ser)
 						ser->recv_queue_mutex.unlock();
 					}
 				}
+			}
 			}
 			lasttime = currtime;
 		} else {
