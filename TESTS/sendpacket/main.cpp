@@ -37,16 +37,24 @@ int main(void)
 
 	// UDOO to Due is /dev/ttymxc3
 	ser.init_old("/dev/ttyUSB0", false);
+	
 	// before continuing, ask scontroller for servo data
 	// mostly to make sure it's ready to do stuff
 	cout << "Confirming Connection.." << endl;
+	// step 1: create a packet destined for the arbotix-m
 	pack = new packet(16, 'A'); // reasonable size?
-	pack->data[0] = 0x05; // request data
-	pack->data[1] = 0x01; // i want positions
-	pack->data[2] = 'D'; // send back to me
+	// step 2: set command byte to 0x05, request for data
+	pack->data[0] = 0x05;
+	// step 3: set request byte to 0x01, requesting servo angles
+	pack->data[1] = 0x01;
+	// step 4: set return byte to 'D', send back to Due
+	pack->data[2] = 'D';
+	// step 5: send the packet
 	ser.send(pack, true);
 	sleep(1);
 	
+	// the Arbotix-M might be off or initializing, so keep sending the request
+	// until you hear something back
 	pack2 = NULL;
 	while ((pack2 = ser.recv('D', false)) == NULL)
 	{
@@ -54,43 +62,27 @@ int main(void)
 		sleep(1);
 	}
 	delete pack;
+	
+	// we received data from the Arbotix-M, it's good to continue
 	cout << "System Ready." << endl;
+	
+	// go ahead and parse that data to initialize the hexapod object
 	for (ii=0; ii<18; ii++)
 	{
 		memcpy(&pos, pack2->data+1+ii*(sizeof(float)+sizeof(uint8_t)), 
 				sizeof(float));
 		hex.servoangle[ii] = pos;
-		cout << pos << endl;
 	}
 	hex.setAngles();
 	delete pack2;
 
 	cout << "Angles read." << endl;
 
-	// sit / stand
-	hex.stand();
+	// get the packet for sending servo angles ready
 	dsize = 100;
 	psize = SIZE;
 	pack = new packet(dsize, 'A', psize);
 	pack->data[0] = 0x01; // set servo positions
-	for (ii=0; ii<18; ii++)
-	{
-		pos = hex.servoangle[ii];
-		memcpy(pack->data+1+ii*sizeof(float),
-				 &pos, sizeof(float));
-	}
-	ser.send(pack);
-
-
-	// max useable speed is 2.0 -> 1 foot per second
-	speed = 0.1; // in cycles per second
-	fdf = 0.55; // foot-down fraction
-	// differential sweep is where legs on one side step farther than the other side
-	// this allows for turning.
-	// the max sweep should be 5x what the bezier curve gives in the x-direction
-	// leftsweep,rightsweep should be [-1,1]
-	// one of them should always be maxed out, any lower is just a slower walking speed
-	turning = 0.0; // [-1,1], rotation in z-axis
 
 
 	// get ready to ask for data
@@ -101,8 +93,8 @@ int main(void)
 	pack_data = NULL;
 	ser.send(pack_ask);
 	
-	cout << "Begin IK" << endl;
-	// IK test
+	cout << "Begin.." << endl;
+
 	time = 0.0;
 	modtime = 0.0;
 	lasttime = getTime();
@@ -111,7 +103,7 @@ int main(void)
 	{
 		for (ik=0; ik<6; ik++)
 		{
-
+			// set leg position in 3d space
 			// x position
 			if (ik < 3) target[0] = hex.legpos[ik][0];
 			else target[0] = hex.legpos[ik][0];
@@ -123,7 +115,7 @@ int main(void)
 			// z position
 			target[2] = -10.0;
 
-
+			// do an IK solve, update servo angle if it converged
 			if (hex.IKSolve(ik,target))
 			{
 				hex.setServoAngles();
@@ -136,8 +128,10 @@ int main(void)
 				}
 			}
 		}
+		// all legs have been updated, send packet
 		ser.send(pack);
 		usleep(20*1000);
+		
 		// ask for data?
 		if (getTime()-lastdata > 1.0)
 		{
@@ -162,9 +156,6 @@ int main(void)
 		dt = (getTime() - lasttime);
 		lasttime = getTime();
 		time += dt;
-		modtime += dt*speed;
-		if (modtime > 1.0) modtime -= 1.0;
-		if (modtime < 0.0) modtime += 1.0;
 	}
 
 	delete pack;
