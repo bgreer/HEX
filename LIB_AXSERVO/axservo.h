@@ -1,41 +1,50 @@
 // target: arbotix-m
-
+// depends on ax12.h for things like ax12SetRegister()
 
 class axservo
 {
 public:
-	unsigned long SERVO_DELAY;
-  uint8_t id, errid;
+	unsigned long SERVO_DELAY; // in microseconds
+	uint8_t id, errid;
 	bool reverse;
+	// the 'reverse' boolean allows for a reversal of angle (target, limits, etc)
+	// this helps when some servos are mounted backwards, don't need to worry about
+	// orientation every time you set something.
+	
+	// an error code is included in data packets received from the servos whenever asked for data
+	// try to grab this error code as often as possible
 
-  axservo (uint8_t i)
-  {
+	axservo (uint8_t i)
+	{
 		errid = 0;
-    id = i;
+		id = i;
 		SERVO_DELAY = 10000;
 		reverse = false;
-  }
+	}
   
-  // do important things
-  void setID (uint8_t val) // UNTESTED
-  {
-    ax12SetRegister(id,AX_ID,val); // eeprom
-    id = val;
-  }
-  void setPosition (float angle)
-  {
-    int val;
-    val = (int)(angle*1023./300.);
+	// set id of this servo to another id
+	void setID (uint8_t val) // UNTESTED
+	{
+		ax12SetRegister(id,AX_ID,val); // eeprom
+		id = val;
+	}
+	
+	// set the target angle
+	void setPosition (float angle)
+	{
+		int val;
+		val = (int)(angle*1023./300.);
 		if (reverse) val = 1023-val;
-    ax12SetRegister2(id,AX_GOAL_POSITION_L,val); // ram
+		ax12SetRegister2(id,AX_GOAL_POSITION_L,val); // ram
 		delayMicroseconds(SERVO_DELAY);
-  }
-  void setRotationLimits (float angle1, float angle2)
-  {
-    int val1, val2;
+	}
+	
+	void setRotationLimits (float angle1, float angle2)
+	{
+		int val1, val2;
     
-    val1 = (int)(angle1*1023./300.);
-    val2 = (int)(angle2*1023./300.);
+		val1 = (int)(angle1*1023./300.);
+		val2 = (int)(angle2*1023./300.);
 
 		if (reverse)
 		{
@@ -43,20 +52,21 @@ public:
 			val2 = 1023-val2;
 		}
     
-    delayMicroseconds(SERVO_DELAY);
-    if (val1 >= 0 && val1 <= 1023 && val1 <= val2)
-      ax12SetRegister2(id,AX_CW_ANGLE_LIMIT_L,val1); // eeprom
-    else
-      Serial.println("ERROR: Invalid rotation limit");
-      
-    delayMicroseconds(SERVO_DELAY);
+		delayMicroseconds(SERVO_DELAY);
+		if (val1 >= 0 && val1 <= 1023 && val1 <= val2)
+			ax12SetRegister2(id,AX_CW_ANGLE_LIMIT_L,val1); // eeprom
+		else
+			Serial.println("ERROR: Invalid rotation limit");
+
+		delayMicroseconds(SERVO_DELAY);
     
-    if (val2 >= 0 && val2 <= 1023 && val1 <= val2)
-      ax12SetRegister2(id,AX_CCW_ANGLE_LIMIT_L,val2); // eeprom
-    else
-      Serial.println("ERROR: Invalid rotation limit");
-    delayMicroseconds(SERVO_DELAY);
-  }
+		if (val2 >= 0 && val2 <= 1023 && val1 <= val2)
+			ax12SetRegister2(id,AX_CCW_ANGLE_LIMIT_L,val2); // eeprom
+		else
+			Serial.println("ERROR: Invalid rotation limit");
+		delayMicroseconds(SERVO_DELAY);
+	}
+	
 	void setTorqueEnable (bool enable)
 	{
 		if (enable)
