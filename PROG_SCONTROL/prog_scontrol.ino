@@ -50,7 +50,7 @@ void setPositions ()
 
 	for (ii=0; ii<NUM_SERVOS; ii++)
 	{
-		memcpy(&pos, currpacket->data+ii*sizeof(float), 
+		memcpy(&pos, currpacket->data+1+ii*sizeof(float), 
 				sizeof(float));
 		servo[ii]->setPosition(pos);
 	}
@@ -58,45 +58,71 @@ void setPositions ()
 
 void setLimits()
 {
+	int ii;
+	float ang1, ang2;
 
+	for (ii=0; ii<NUM_SERVOS; ii++)
+	{
+		memcpy(&ang1, currpacket->data+1+ii*2*sizeof(float), 
+				sizeof(float));
+		memcpy(&ang2, currpacket->data+1+(ii*2+1)*sizeof(float), 
+				sizeof(float));
+		servo[ii]->setRotationLimits(ang1, ang2);
+	}
 }
 
-void sendData()
+void setTorqueEnable ()
+{
+	int ii;
+	bool enable;
+
+	for (ii=0; ii<NUM_SERVOS; ii++)
+	{
+		memcpy(&enable, currpacket->data+1+ii, 1);
+		servo[ii]->setTorqueEnable(enable);
+	}
+}
+
+void sendData(unsigned char info, unsigned char dest)
 {
 	int ii;
 	float value;
-	uint8_t flag;
+	uint8_t err;
 	packet *pack;
 
-	// determines what data to collect
-	flag = (uint8_t)currpacket->buffer[PACKET_HEADER_SIZE];
+	// space for info and possible error codes
+	pack = new packet(NUM_SERVOS*(sizeof(float) + sizeof(uint8_t))+1, 
+			dest, 0, sendbuff);
+	pack->data[0] = info; // repeat back what info this is
 
-	pack = new packet(NUM_SERVOS*sizeof(float)+1, 'E', 0, sendbuff);
-	pack->buffer[PACKET_HEADER_SIZE] = flag;
 	for (ii=0; ii<NUM_SERVOS; ii++)
 	{
 		value = 0.0;
-		switch (flag)
+		switch (info)
 		{
-			case 1:
+			case 0x01:
 				value = servo[ii]->getPosition();
 				break;
-			case 2:
+			case 0x02:
 				value = servo[ii]->getTemperature();
 				break;
-			case 3:
+			case 0x03:
 				value = servo[ii]->getSpeed();
 				break;
-			case 4:
+			case 0x04:
 				value = servo[ii]->getLoad();
 				break;
-			case 5:
+			case 0x05:
 				value = servo[ii]->getVoltage();
 				break;
 		}
-		memcpy(pack->buffer+PACKET_HEADER_SIZE+1+ii*sizeof(float), 
+		err = servo[ii]->getError();
+		memcpy(pack->data+1+ii*(sizeof(float)+sizeof(uint8_t)), 
 				&value, sizeof(float));
+		memcpy(pack->data+1+ii*(sizeof(float)+sizeof(uint8_t))+sizeof(float),
+				&err, sizeof(uint8_t));
 	}
+	pack->setChecksum();
 	Serial.write(pack->buffer, *(pack->p_packet_size));
 	delete pack;
 	memset(sendbuff, 0x00, 128);
@@ -107,31 +133,42 @@ void parsePacket ()
 	int ii;
 	float pos;
 	unsigned long t0, t1;
-	// TODO: use checksum
 
 	if (!currpacket->verify()) 
 	{
-		Serial.println("CHECKSUM ERROR");
+//		Serial.println("CHECKSUM ERROR");
 		return;
 	}
 
-	switch (currpacket->getTag())
+	if (currpacket->getTag() == 'A') // this is the destination
 	{
-		case 'D': // get servo data
-			sendData();
-			break;
-		case 'L': // set servo limits
-			setLimits();
-			break;
-		case 'R': // repeat back as a test
-			currpacket->setTag('T');
-			Serial.write(currpacket->buffer, *(currpacket->p_packet_size));
-			break;
-		case 'S': // set servo positions
-			setPositions();
-			break;
-		case 'T': // test message, ignore
-			break;
+		// look at first byte of data to decide what action to take
+		switch (currpacket->data[0])
+		{
+			case 0x01: // set servo positions
+				setPositions();
+				break;
+			case 0x02: // set servo limits
+				setLimits();
+				break;
+			case 0x03: // set torque enable / disable
+				setTorqueEnable();
+				break;
+			case 0x04: // set compliance slopes
+				// TODO
+				break;
+			case 0x05: // request data
+				sendData(currpacket->data[1], currpacket->data[2]);
+				break;
+			default:
+				break;
+		}
+	} else if (currpacket->getTag() == 'D') { // send to due
+		Serial.write(currpacket->buffer, *(currpacket->p_packet_size));
+	} else if (currpacket->getTag() == 'U') { // send to udoo
+		Serial.write(currpacket->buffer, *(currpacket->p_packet_size));
+	} else if (currpacket->getTag() == 'T') { // test packet, ignore
+		//
 	}
 
 	// currpacket will be deleted after this function exits
@@ -164,8 +201,8 @@ void setup ()
 		servo[ii]->setComplianceSlopes(64,64);
 		// half the body is reversed
 		if (ii<9 && !(ii%3==0)) servo[ii]->reverse = true;
-		// stiffen
-		servo[ii]->setTorqueEnable(true);
+		// keep servos slack
+		servo[ii]->setTorqueEnable(false);
 		// set servos to 'fast' mode
 		// only ack when asked to
 		servo[ii]->setReturnLevel(1);

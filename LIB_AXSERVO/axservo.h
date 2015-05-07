@@ -5,11 +5,12 @@ class axservo
 {
 public:
 	unsigned long SERVO_DELAY;
-  uint8_t id;
+  uint8_t id, errid;
 	bool reverse;
 
   axservo (uint8_t i)
   {
+		errid = 0;
     id = i;
 		SERVO_DELAY = 10000;
 		reverse = false;
@@ -78,11 +79,18 @@ public:
 		ax12SetRegister(id,AX_CCW_COMPLIANCE_SLOPE,ccw);
 	}
 
+	uint8_t getError ()
+	{
+		errid = ax12GetLastError();
+		return errid;
+	}
+
   // important info
   float getPosition ()
   {
     int val;
     val = ax12GetRegister(id,AX_PRESENT_POSITION_L,2);
+		errid = ax12GetLastError();
 		if (reverse) val = 1023-val;
     return val*300./1023.; // assumes joint mode
   }
@@ -90,6 +98,7 @@ public:
   {
     int val;
     val = ax12GetRegister(id,AX_PRESENT_SPEED_L,2);
+		errid = ax12GetLastError();
     val = (val&0x3FF) * ((val&0x400)?-1:1);
 		if (reverse) val = -val;
     return val*0.111; // assumes joint mode
@@ -98,6 +107,7 @@ public:
   {
     int val;
     val = ax12GetRegister(id,AX_PRESENT_LOAD_L,2);
+		errid = ax12GetLastError();
     val = (val&0x3FF) * ((val&0x400)?-1:1);
 		if (reverse) val = -val;
     return val/1024.;
@@ -107,6 +117,7 @@ public:
 		int val;
 		delayMicroseconds(SERVO_DELAY);
 		val = ax12GetRegister(id,AX_RETURN_DELAY_TIME,1);
+		errid = ax12GetLastError();
 		return val*2;
 	}
 	void setReturnDelay (int usec)
@@ -128,6 +139,7 @@ public:
     int val;
     delayMicroseconds(SERVO_DELAY);
     val = ax12GetRegister(id,AX_BAUD_RATE,1);
+		errid = ax12GetLastError();
 		return val;
   }
   float getCWAngleLimit ()

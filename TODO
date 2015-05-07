@@ -4,4 +4,4 @@ add more advanced scontrol options
 debug loss of scontrol->due communication
 test SLAM on real LIDAR scans
 create profiling library? add to cpu codes
-
+create logging library
