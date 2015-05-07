@@ -65,6 +65,7 @@ public:
 	float time, speed;
 	float smoothspeed, fdf;
 	float turning, smoothturning;
+	float standheight;
 
 	// for safestand
 	float sstime;

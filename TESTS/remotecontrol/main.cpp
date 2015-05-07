@@ -37,7 +37,7 @@ double getTime()
 int main(void)
 {
 	int ii, ij, ik, ix, iy, size, ind;
-	int cx, cy;
+	int cx, cy, attempts;
 	serial ser;
 	packet *pack, *pack2, *pack_ask, *pack_data;
 	hexapod hex;
@@ -100,12 +100,19 @@ int main(void)
 	pack = new packet(16, 'D', 128); // reasonable size?
 	pack->data[0] = 1;
 	ser.send(pack, true);
+	attempts = 1;
 	sleep(1);
 	
 	pack2 = NULL;
 	while ((pack2 = ser.recv('E', false)) == NULL)
 	{
 		ser.send(pack, true);
+		attempts ++;
+		if (attempts > 10)
+		{
+			cout << "Could not connect!" << endl;
+			exit(-1);
+		}
 		sleep(1);
 	}
 	delete pack;
@@ -202,17 +209,23 @@ int main(void)
 					break;
 				case SDL_JOYAXISMOTION:
 					joyval = event.jaxis.value/32767.;
-					if (event.jaxis.axis == 1)
+					if (event.jaxis.axis == 1) // L stick, yaxis
 					{
 						if (joyval > 0.1) hex.speed = joyval - 0.1;
 						else if (joyval < -0.1) hex.speed = joyval + 0.1;
 						else hex.speed = 0.0;
 					}
-					if (event.jaxis.axis == 2)
+					if (event.jaxis.axis == 2) // R stick, xaxis
 					{
 						if (joyval > 0.1) hex.turning = (joyval-0.1);
 						else if (joyval < -0.1) hex.turning = (joyval+0.1);
 						else hex.turning = 0.0;
+					}
+					if (event.jaxis.axis == 3) // R stick, yaxis
+					{
+						if (joyval > 0.1) hex.standheight = (joyval-0.1)*2.0;
+						else if (joyval < -0.1) hex.standheight = (joyval+0.1)*2.0;
+						else hex.standheight = 0.0;
 					}
 					break;
 			}

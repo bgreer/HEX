@@ -76,7 +76,7 @@ int main(void)
 		memcpy(pack->data+ii*sizeof(float),
 				 &pos, sizeof(float));
 	}
-	ser.send(pack);
+	//ser.send(pack);
 
 	// max useable speed is 2.0 -> 1 foot per second
 	speed = 0.4; // in cycles per second
@@ -102,40 +102,19 @@ int main(void)
 	lasttime = getTime();
 	while (time < 120.0)
 	{
-		turning = 0.5*sin(time*2.*3.14/5.);
-		turning = 0.0;
-		// set sweeps
-		leftsweep = 1.0;
-		rightsweep = 1.0;
-		if (turning < -TURN_TOL)
-		{
-			leftsweep = 1.0;
-			rightsweep = 1.0 + 2.*turning;
-		} else if (turning > TURN_TOL) {
-			leftsweep = 1.0 - 2.*turning;
-			rightsweep = 1.0;
-		}
-
 		for (ik=0; ik<6; ik++)
 		{
-			phase = (3.14159)*ik;
-			// set target relative to leg
-			modtime2 = fmod(modtime+0.5*ik+(hex.legpos[ik][0]-hex.legpos[0][0])*0.0125, 1.0);
-			if (modtime2 < fdf) hex.b2d_walk_down.getPos(modtime2/fdf, &xpos, &zpos);
-			else hex.b2d_walk_up.getPos((modtime2-fdf)/(1.-fdf), &xpos, &zpos);
 
 			// x position
-			if (ik < 3) target[0] = hex.legpos[ik][0]*1.5 + 4.8*xpos*leftsweep;
-			else target[0] = hex.legpos[ik][0]*1.5 + 4.8*xpos*rightsweep;
+			if (ik < 3) target[0] = hex.legpos[ik][0] + 0.0*sin(time*0.3);
+			else target[0] = hex.legpos[ik][0] + 0.0*sin(time*0.3);
 			// y position
-			if (ik < 3) target[1] = 14.0;
-			else target[1] = -14.0;
-			if (ik == 1) target[1] = 18.0;
-			if (ik == 4) target[1] = -18.0;
+			if (ik < 3) target[1] = 25. + 5.0*sin(time*0.5);
+			else target[1] = -25. + 5.0*sin(time*0.5);
+			if (ik == 1) target[1] = 27.0;
+			if (ik == 4) target[1] = -27.0;
 			// z position
-			target[2] = -10.0 + zpos*2.0;
-
-			//target[2] += 2.0*sin(time*4);
+			target[2] = 0.0;
 
 
 			if (hex.IKSolve(ik,target))

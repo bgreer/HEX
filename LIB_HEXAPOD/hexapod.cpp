@@ -14,6 +14,8 @@ void hexapod::step (float dt)
 	if (speed < -MAX_SPEED) speed = -MAX_SPEED;
 	if (turning > 1.0) turning = 1.0;
 	if (turning < -1.0) turning = -1.0;
+	if (standheight < -2.0) standheight = -2.0;
+	if (standheight > 2.0) standheight = 2.0;
 	
 	// make sure speed doesnt change too rapidly
 	smoothspeed = 0.95*smoothspeed + 0.05*speed;
@@ -58,7 +60,7 @@ void hexapod::step (float dt)
 			if (ii == 4) target[1] = -18.0;
 			target[0] = legpos1[ii][0];
 			target[1] = legpos1[ii][1];
-			target[2] = -10.;
+			target[2] = -10. + standheight;
 			// given final target, turn into current target
 			if (ssfrac < 0.5)
 			{
@@ -144,7 +146,8 @@ void hexapod::step (float dt)
 		// set up the IK target
 		target[0] = xpos;
 		target[1] = ypos;
-		target[2] = -10.0 + zpos*2.0*legraise;
+		target[2] = -10.0 + zpos*3.0*legraise + standheight;
+		if (standheight < 0.0) target[2] -= 1.7*zpos*standheight;
 
 
 		// perform IK solve
@@ -182,11 +185,11 @@ hexapod::hexapod()
 	int ii;
 
 	// init constants for each leg
-	length[0] = 5.04; // in cm
-	length[1] = 6.52;
-	length[2] = 13.3;
-	femurangle = 9.53*DEGTORAD; // old: 11.5
-	tibiaangle = 45.0*DEGTORAD; // old_47.3
+	length[0] = 5.26; // in cm
+	length[1] = 6.53;
+	length[2] = 13.2;
+	femurangle = 12.3*DEGTORAD; // old: 11.5, 9.53
+	tibiaangle = 40.0*DEGTORAD; // old_47.3, 45.0
 
 	anglelb[0] = 75.0*DEGTORAD;
 	angleub[0] = 245.*DEGTORAD;
@@ -202,8 +205,8 @@ hexapod::hexapod()
 		//angleub[ii] *= 0.75;
 	}
 
-	legpos[0][0] = 11.98;
-	legpos[0][1] = 5.97;
+	legpos[0][0] = 12.50;
+	legpos[0][1] = 5.95;
 	legpos[0][2] = 1.82;
 	legpos[1][0] = 0.0;
 	legpos[1][1] = 9.957;
