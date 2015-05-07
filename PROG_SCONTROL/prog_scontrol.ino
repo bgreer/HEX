@@ -2,20 +2,23 @@
 #include "/home/bgreer/PROJECTS/HEX/LIB_AXSERVO/axservo.h"
 #include "/home/bgreer/PROJECTS/HEX/LIB_PACKET/packet.h"
 
-#define READ_BUFFER_SIZE 128
-#define PREBUFF_SIZE 1024
-#define NUM_SERVOS 18
-#define LOOP_DELAY 1
-
 // TARGET: Arbotix-M controller
 // the theme for communication here is:
 //  do not speak unless spoken to
 
-/* servo IDs:
+// how many bytes to read in on serial line at one time
+#define READ_BUFFER_SIZE 128
+// a pre-allocated buffer for packets,
+// because endlessly calling *alloc and free are bad on limited-memory systems
+#define PREBUFF_SIZE 1024
+#define NUM_SERVOS 18
+#define LOOP_DELAY 1
+
+/* servo IDs for the hexapod:
  *           back
- *	06 10 08 ---- 07 09 11 
- *	12 16 14 ---- 13 15 17
- *	18 04 02 ---- 01 03 05
+ *  06 10 08 ---- 07 09 11 
+ *  12 16 14 ---- 13 15 17
+ *  18 04 02 ---- 01 03 05
  *           front
  *
  * convert to index:
@@ -23,9 +26,10 @@
  *  14 13 12 ---- 03 04 05
  *  11 10 09 ---- 00 01 02
  *
+ *  naming of joints:
  * tibia, femur, coxa ---- coxa, femur, tibia
  *
- * limits (ignoring intersection with other limbs):
+ * angle limits (ignoring intersection with other limbs):
  * 	coxa: 245 - 75
  * 	femur: 250 - 55
  * 	tibia: 215 - 40
@@ -40,6 +44,7 @@ unsigned char readbuffer[READ_BUFFER_SIZE], prebuff[PREBUFF_SIZE];
 unsigned char sendbuff[128];
 unsigned char buffer[10], tag, checksum;
 bool packetloading;
+long chksum_good, chksum_bad;
 
 // parse the current packet and set limits based on it
 // setting all servo takes about 3.2 ms
@@ -128,18 +133,21 @@ void sendData(unsigned char info, unsigned char dest)
 	memset(sendbuff, 0x00, 128);
 }
 
+// this is called immediately when a full packet is received
+// the currpacket object will be cleared once this function exits
 void parsePacket ()
 {
-	int ii;
-	float pos;
-	unsigned long t0, t1;
 
+	// if we can't verify the packet with the checksum
 	if (!currpacket->verify()) 
 	{
-//		Serial.println("CHECKSUM ERROR");
+		chksum_bad += 1;
 		return;
 	}
+	// keep track of how many packets had good or bad checksums
+	chksum_good += 1;
 
+	// use packet tag to check destination
 	if (currpacket->getTag() == 'A') // this is the destination
 	{
 		// look at first byte of data to decide what action to take
@@ -170,8 +178,6 @@ void parsePacket ()
 	} else if (currpacket->getTag() == 'T') { // test packet, ignore
 		//
 	}
-
-	// currpacket will be deleted after this function exits
 }
 
 void setup ()
@@ -212,9 +218,11 @@ void setup ()
 		servo[ii]->SERVO_DELAY = 10;
 	}
 
+	chksum_good = 0;
+	chksum_bad = 0;
 	packetstart = 0;
 	packetloading = false;
-	delay(50);
+	delay(50); // pause for good measure
 	// setup done, ready to act
 }
 
@@ -228,24 +236,27 @@ void loop ()
 	nbytes = 0;
 	while (Serial.available() && nbytes < READ_BUFFER_SIZE)
 	{
+		// while it seems inefficient to read data one byte at a time,
+		// 1 - I haven't actually seen too much of a slow down.
+		// 2 - Doing a bulk read sometimes breaks things. No idea why.
 		readbuffer[nbytes] = Serial.read();
 		nbytes++;
 	}
 
-	if (nbytes>0)
+	// this parsing method is similar to what is found in LIB_SERIAL/serial.cpp
+
+	// if we have data sitting in the buffer to go through..
+	for (ii=0; ii<nbytes; ii++)
 	{
-		for (ii=0; ii<nbytes; ii++)
-		{
 		inByte = readbuffer[ii];
-//		Serial.print(ii);
-	//	Serial.print(" ");
-		//Serial.println(inByte,HEX);
 		if (inByte == 0x11) packetstart ++;
 		else packetstart = 0;
+		// need three 0x11's to initiate a packet
 		if (packetstart == 3)
 		{
 			if (packetloading) // we were already loading a packet
 			{
+				// get rid of old information, reset things
 				delete currpacket;
 				memset(prebuff, 0x00, PREBUFF_SIZE);
 				packetloading = false;
@@ -254,6 +265,7 @@ void loop ()
 			headercount = 0;
 			packetstart = 0;
 		} else if (packetloading) {
+			// if we are still in the header part of the packet
 			if (headercount < 10)
 			{
 				buffer[headercount] = inByte;
@@ -271,10 +283,14 @@ void loop ()
 					packetind = 0;
 				}
 			} else {
-				currpacket->buffer[PACKET_HEADER_SIZE+packetind] = inByte;
+				// put data in the packet!
+				currpacket->data[packetind] = inByte;
 				packetind ++;
 				if (packetind+headercount == dsize) // done loading
 				{
+					// call functions to act on this packet before destroying it
+					// not great method
+					// make sure parsePacket() returns fairly quickly
 					parsePacket();
 					delete currpacket;
 					memset(prebuff, 0x00, PREBUFF_SIZE);
@@ -283,8 +299,6 @@ void loop ()
 				}
 			}
 		}
-		}
-
 	}
 	
 	delay(LOOP_DELAY);
