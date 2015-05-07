@@ -1,4 +1,5 @@
 
+update repeater, remote tests to use new packet structure
 test SLAM on real LIDAR scans
 create profiling library? add to cpu codes
 create logging library
