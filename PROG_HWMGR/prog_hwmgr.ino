@@ -42,23 +42,15 @@ void parsePacket (packet *pack)
 	//	return;
 	}
 
-	switch (pack->getTag())
+	if (pack->getTag() == 'D') // we are the target!
 	{
-		case 'D': // request data from arbotix-m
-			Serial1.write(pack->buffer, *(pack->p_packet_size));
-			break;
-		case 'E': // data from arbotix-m
-			Serial.write(pack->buffer, *(pack->p_packet_size));
-			break;
-		case 'R': // repeat back as a test
-			pack->setTag('T');
-			Serial.write(pack->buffer, *(pack->p_packet_size));
-			break;
-		case 'S': // servo positions for arbotix-m
-			Serial1.write(pack->buffer, *(pack->p_packet_size));
-			break;
-		case 'T': // test message, ignore
-			break;
+		
+	} else if (pack->getTag() == 'U') { // send to udoo
+		Serial.write(pack->buffer, *(pack->p_packet_size));
+	} else if (pack->getTag() == 'A') { // send to arbotix-m
+		Serial1.write(pack->buffer, *(pack->p_packet_size));
+	} else if (pack->getTag() == 'T') { // test message, disregard
+
 	}
 
 	// ser0_packet will be deleted after this function exits

@@ -45,7 +45,8 @@ int main(void)
 	SDL_Event event;
 	SDL_Joystick *joy;
 	int dsize, psize;
-	double time, lasttime, dt;
+	double time, lasttime, dt, lastdata;
+	uint8_t errcode;
 	float pos, avgtemp, joyval;
 	unsigned char chk;
 	bool cont, quit;
@@ -97,25 +98,29 @@ int main(void)
 	// before continuing, ask scontroller for servo data
 	// mostly to make sure it's ready to do stuff
 	cout << "Confirming Connection.." << endl;
-	pack = new packet(16, 'D', 128); // reasonable size?
-	pack->data[0] = 1;
+	// step 1: create a packet destined for the arbotix-m
+	pack = new packet(16, 'A'); // reasonable size?
+	// step 2: set command byte to 0x05, request for data
+	pack->data[0] = 0x05;
+	// step 3: set request byte to 0x01, requesting servo angles
+	pack->data[1] = 0x01;
+	// step 4: set return byte to 'D', send back to Due
+	pack->data[2] = 'D';
+	// step 5: send the packet
 	ser.send(pack, true);
-	attempts = 1;
 	sleep(1);
 	
+	// the Arbotix-M might be off or initializing, so keep sending the request
+	// until you hear something back
 	pack2 = NULL;
-	while ((pack2 = ser.recv('E', false)) == NULL)
+	while ((pack2 = ser.recv('D', false)) == NULL)
 	{
 		ser.send(pack, true);
-		attempts ++;
-		if (attempts > 10)
-		{
-			cout << "Could not connect!" << endl;
-			exit(-1);
-		}
 		sleep(1);
 	}
 	delete pack;
+	
+	// we received data from the Arbotix-M, it's good to continue
 	cout << "System Ready." << endl;
 	for (ii=0; ii<18; ii++)
 	{
@@ -132,7 +137,8 @@ int main(void)
 	// sit / stand
 	dsize = 100;
 	psize = SIZE;
-	pack = new packet(dsize, 'S', psize);
+	pack = new packet(dsize, 'A', psize);
+	pack->data[0] = 0x01; // set servo positions
 
 	// max useable speed is 2.0 -> 1 foot per second
 	hex.speed = 0.0; // in cycles per second
@@ -140,8 +146,10 @@ int main(void)
 
 
 	// get ready to ask for data
-	pack_ask = new packet(16, 'D', 128);
-	pack_ask->data[0] = 5;
+	pack_ask = new packet(16, 'A');
+	pack_ask->data[0] = 0x05;
+	pack_ask->data[1] = 0x02; // want temperature
+	pack_ask->data[2] = 'U';
 	pack_data = NULL;
 	ser.send(pack_ask);
 	
@@ -149,6 +157,7 @@ int main(void)
 	// IK test
 	time = 0.0;
 	lasttime = getTime();
+	lastdata = lasttime;
 	hex.safeStand();
 	while (hex.ssrunning)
 	{
@@ -159,7 +168,7 @@ int main(void)
 		for (ii=0; ii<18; ii++)
 		{
 			pos = hex.servoangle[ii];
-			memcpy(pack->data+(ii)*sizeof(float), 
+			memcpy(pack->data+1+(ii)*(sizeof(float)+sizeof(uint8_t)), 
 					&pos, sizeof(float));
 		}
 		ser.send(pack);
@@ -178,28 +187,33 @@ int main(void)
 		for (ii=0; ii<18; ii++)
 		{
 			pos = hex.servoangle[ii];
-			memcpy(pack->data+(ii)*sizeof(float), 
+			memcpy(pack->data+1+(ii)*sizeof(float), 
 					&pos, sizeof(float));
 		}
 		ser.send(pack);
 		// ask for data?
-		/*
-		if ((pack2=ser.recv('E',false)) != NULL)
+		
+		if (getTime() - lastdata > 1.0)
+		{
+		if ((pack2=ser.recv('U',false)) != NULL)
 		{
 			avgtemp = 0.0;
 			for (ii=0; ii<18; ii++)
 			{
-				memcpy(&pos, pack2->data+1+ii*sizeof(float), 
+				memcpy(&pos, pack2->data+1+ii*(sizeof(float)+sizeof(uint8_t)), 
 						sizeof(float));
+				memcpy(&errcode, pack2->data+1+ii*(sizeof(float)+sizeof(uint8_t))+sizeof(float), sizeof(uint8_t));
 				avgtemp += pos;
 			}
 			avgtemp /= 18.;
 			cout << time << " " << avgtemp << endl;
 			delete pack2;
+			lastdata = getTime();
 			pack2 = NULL;
 			ser.send(pack_ask);
 		}
-		*/
+		}
+		
 		while (SDL_PollEvent(&event))
 		{
 			switch (event.type)
