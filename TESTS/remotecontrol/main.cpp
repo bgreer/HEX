@@ -40,6 +40,7 @@ int main(void)
 	int cx, cy, attempts;
 	serial ser;
 	packet *pack, *pack2, *pack_ask, *pack_data;
+	packet *pack_enable, *pack_disable;
 	hexapod hex;
 	SDL_Surface *screen;
 	SDL_Event event;
@@ -47,7 +48,7 @@ int main(void)
 	int dsize, psize;
 	double time, lasttime, dt, lastdata;
 	uint8_t errcode;
-	float pos, avgtemp, joyval;
+	float pos, avgtemp, joyval, maxval;
 	unsigned char chk;
 	bool cont, quit;
 
@@ -94,6 +95,17 @@ int main(void)
 		}
 		SDL_Delay(10);
 	}
+
+	// prep the motor enable / disable packets
+	pack_enable = new packet(18, 'A');
+	pack_enable->data[0] = 0x03;
+	pack_disable = new packet(18, 'A');
+	pack_disable->data[0] = 0x03;
+	for (ii=0; ii<18; ii++)
+	{
+		pack_enable->data[ii+1] = 0x01;
+		pack_disable->data[ii+1] = 0x00;
+	}
 	
 	// before continuing, ask scontroller for servo data
 	// mostly to make sure it's ready to do stuff
@@ -105,7 +117,7 @@ int main(void)
 	// step 3: set request byte to 0x01, requesting servo angles
 	pack->data[1] = 0x01;
 	// step 4: set return byte to 'D', send back to Due
-	pack->data[2] = 'D';
+	pack->data[2] = 'U';
 	// step 5: send the packet
 	ser.send(pack, true);
 	sleep(1);
@@ -113,7 +125,7 @@ int main(void)
 	// the Arbotix-M might be off or initializing, so keep sending the request
 	// until you hear something back
 	pack2 = NULL;
-	while ((pack2 = ser.recv('D', false)) == NULL)
+	while ((pack2 = ser.recv('U', false)) == NULL)
 	{
 		ser.send(pack, true);
 		sleep(1);
@@ -124,8 +136,9 @@ int main(void)
 	cout << "System Ready." << endl;
 	for (ii=0; ii<18; ii++)
 	{
-		memcpy(&pos, pack2->data+1+ii*sizeof(float), 
+		memcpy(&pos, pack2->data+1+ii*(sizeof(float)+sizeof(uint8_t)), 
 				sizeof(float));
+		cout << pos << endl;
 		hex.servoangle[ii] = pos;
 	}
 	hex.setAngles();
@@ -133,7 +146,7 @@ int main(void)
 
 
 	cout << "Angles read." << endl;
-
+	
 	// sit / stand
 	dsize = 100;
 	psize = SIZE;
@@ -144,6 +157,7 @@ int main(void)
 	hex.speed = 0.0; // in cycles per second
 	hex.turning = 0.0; // [-1,1], rotation in z-axis
 
+	ser.send(pack_enable);
 
 	// get ready to ask for data
 	pack_ask = new packet(16, 'A');
@@ -151,13 +165,11 @@ int main(void)
 	pack_ask->data[1] = 0x02; // want temperature
 	pack_ask->data[2] = 'U';
 	pack_data = NULL;
-	ser.send(pack_ask);
 	
 	cout << "Begin IK" << endl;
 	// IK test
 	time = 0.0;
 	lasttime = getTime();
-	lastdata = lasttime;
 	hex.safeStand();
 	while (hex.ssrunning)
 	{
@@ -168,7 +180,7 @@ int main(void)
 		for (ii=0; ii<18; ii++)
 		{
 			pos = hex.servoangle[ii];
-			memcpy(pack->data+1+(ii)*(sizeof(float)+sizeof(uint8_t)), 
+			memcpy(pack->data+1+ii*sizeof(float), 
 					&pos, sizeof(float));
 		}
 		ser.send(pack);
@@ -176,6 +188,10 @@ int main(void)
 
 	}
 	lasttime = getTime();
+	lastdata = lasttime;
+	ser.send(pack_ask);
+	usleep(20*1000);
+
 	quit = false;
 	while (!quit)
 	{
@@ -197,6 +213,7 @@ int main(void)
 		{
 		if ((pack2=ser.recv('U',false)) != NULL)
 		{
+			maxval = 1e-10;
 			avgtemp = 0.0;
 			for (ii=0; ii<18; ii++)
 			{
@@ -204,13 +221,17 @@ int main(void)
 						sizeof(float));
 				memcpy(&errcode, pack2->data+1+ii*(sizeof(float)+sizeof(uint8_t))+sizeof(float), sizeof(uint8_t));
 				avgtemp += pos;
+				if (pos > maxval) maxval = pos;
+				if (errcode != 0) // 32=overload, 4=temperature, 1=voltage
+					cout << "SERVO ERROR: "<< (int)(errcode) << " ON SERVO " << ii << endl;
 			}
 			avgtemp /= 18.;
-			cout << time << " " << avgtemp << endl;
+			cout << time << " " << avgtemp << " " << maxval << endl;
 			delete pack2;
 			lastdata = getTime();
 			pack2 = NULL;
 			ser.send(pack_ask);
+			usleep(20*1000);
 		}
 		}
 		
@@ -248,7 +269,7 @@ int main(void)
 	}
 
 	cout << "Quitting.." << endl;
-
+	ser.send(pack_disable);
 	delete pack;
 	ser.close();
 
