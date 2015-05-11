@@ -15,6 +15,7 @@ var sslider;
 var smode = 2;
 var sxpos, sypos, sang;
 var snumangles = 72;
+var sscanang;
 var sscandist = Array(snumangles);
 // collision rectangles
 var snumrects = 0;
@@ -29,7 +30,7 @@ var map = Array(nx*ny);
 var sxguess, syguess, sangguess;
 var sxerr, syerr, saerr;
 // tuning
-var lidar_error = 0.05;
+var lidar_error = 0.02;
 var slam_enable = true;
 
 // this gets called on page load?
@@ -49,13 +50,14 @@ function slam_init()
 	sxerr = 0.0;
 	syerr = 0.0;
 	saerr = 0.0;
+	sscanang = 0;
 
 	// create environment
 	slam_addrect(-500,-200,-500,500);
 	slam_addrect(200,500,-500,500);
 	slam_addrect(-500,500,-500,-150);
 	slam_addrect(-500,500,150,500);
-	slam_addrect(-20,20,-10,40);
+	slam_addrect(-30,30,-10,40);
 	slam_addrect(-210,-70,-160,-100);
 	slam_addrect(70,210,-160,-100);
 
@@ -63,7 +65,7 @@ function slam_init()
 	{
 		for (var iy=0; iy<ny; iy++)
 		{
-			map[ix*ny+iy] = 0.0;
+			map[ix*ny+iy] = 0.5;
 		}
 	}
 
@@ -114,7 +116,7 @@ function scan ()
 {
 	for (var ii=0; ii<snumangles; ii++)
 	{
-		tht = 2*Math.PI*ii/snumangles + (Math.random()-0.5)*0.03;
+		tht = 2*Math.PI*ii/snumangles + (Math.random()-0.5)*lidar_error;
 		mindist = 1e6;
 		for (var ij=0; ij<snumrects; ij++)
 		{
@@ -127,25 +129,33 @@ function scan ()
 
 function slam_handlemousedown(event)
 {
-	var x = event.pageX - canv.offsetLeft;
-	var y = event.pageY - canv.offsetTop;
+	var x = event.pageX - scanv.offsetLeft;
+	var y = event.pageY - scanv.offsetTop;
 	sdragging = true;
 	sslider = -1;
+	if (x >= 430 && x <= 580 && y >= 415 && y <= 435)
+	{
+		sslider = 0;
+		slam_moveSlider(x-430);
+	}
 }
 function slam_handlemouseup(event)
-{slam_dragging = false;}
+{sdragging = false;}
 
 function slam_handlemousemove(event)
 {
 	if (sdragging && sslider >= 0)
-		slam_moveSlider(event.pageX - scanv.offsetLeft - 100);
+		slam_moveSlider(event.pageX - scanv.offsetLeft - 430);
 }
 
 function slam_moveSlider(x)
 {
 	var value, logval;
 
-	value = (x/100.) - 2.0;
+	value = (x/150.)*0.1;
+	lidar_error = value;
+	if (lidar_error < 0.0) lidar_error = 0.0;
+	if (lidar_error > 0.1) lidar_error = 0.1;
 
 	if (ssimrun==false) slam_draw();
 }
@@ -155,7 +165,12 @@ function slam_handleclick(event)
   var x = event.pageX - scanv.offsetLeft;
   var y = event.pageY - scanv.offsetTop;
 
-
+	if (Math.sqrt(Math.pow(x-85,2) + Math.pow(y-425,2)) <= 10)
+	  smode = 0;
+	if (Math.sqrt(Math.pow(x-175,2) + Math.pow(y-425,2)) <= 10)
+	  smode = 1;
+	if (Math.sqrt(Math.pow(x-265,2) + Math.pow(y-425,2)) <= 10)
+	  smode = 2;
   if (ssimrun==false) slam_draw();
 }
 
@@ -172,6 +187,8 @@ function slam_run()
 	if (sang >= Math.PI) sang -= 2*Math.PI;
 	sxpos += 0.5*sdt*Math.cos(sang);
 	sypos += 0.5*sdt*Math.sin(sang);
+	sscanang += 7 + Math.round(Math.random()*5);
+	if (sscanang > snumangles) sscanang = 0;
 
 	// check for collisions
 
@@ -179,9 +196,9 @@ function slam_run()
 	// get lidar scan
 	scan();
 
-	sxerr = 0.95*sxerr + (Math.random()-0.5)*1.0;
-	syerr = 0.95*syerr + (Math.random()-0.5)*1.0;
-	saerr = 0.95*saerr + (Math.random()-0.5)*0.05;
+	sxerr = 0.95*sxerr + (Math.random()-0.5)*lidar_error*10.;
+	syerr = 0.95*syerr + (Math.random()-0.5)*lidar_error*10.;
+	saerr = 0.95*saerr + (Math.random()-0.5)*lidar_error;
 	sxerr *= 0.99;
 	syerr *= 0.99;
 	saerr *= 0.95;
@@ -208,8 +225,8 @@ function slam_integrate()
 		tht = 2*Math.PI*ii/snumangles;
 		thisx = sxguess + sscandist[ii]*Math.cos(tht+sangguess);
 		thisy = syguess + sscandist[ii]*Math.sin(tht+sangguess);
-		thisx = Math.round(thisx*0.1 + nx/2-0.5);
-		thisy = Math.round(thisy*0.1 + ny/2-0.5);
+		thisx = Math.round(thisx*0.1 + nx/2);
+		thisy = Math.round(thisy*0.1 + ny/2);
 		if (thisx >= 0 && thisx < nx && thisy >= 0 && thisy < ny)
 			map[thisx*ny+thisy] = 1.0;
 	}
@@ -218,14 +235,14 @@ function slam_integrate()
 	{
 		for (var iy=0; iy<ny; iy++)
 		{
-			xval = (ix-nx/2)/0.2;
-			yval = (iy-ny/2)/0.2;
+			xval = (ix-nx/2)/0.1;
+			yval = (iy-ny/2)/0.1;
 			thistht = Math.atan2(yval-syguess, xval-sxguess) - sangguess;
 			if (thistht < 0.0) thistht += 2*Math.PI;
 			thisdist = Math.sqrt(Math.pow(sxguess-xval,2)+Math.pow(syguess-yval,2));
 			ind = Math.round(thistht*snumangles/(2*Math.PI));
 			if (thisdist < sscandist[ind])
-				map[ix*ny+iy] *= 1. - 0.05*thisdist/sscandist[ind];
+				map[ix*ny+iy] *= 0.90 + 0.1*thisdist/sscandist[ind];
 		}
 	}
 }
@@ -242,6 +259,8 @@ function slam_draw()
 		sctx.lineWidth = 1;
 		for (var ii=0; ii<snumangles; ii++)
 		{
+			if (ii == sscanang) sctx.strokeStyle = '#ff7777';
+			else sctx.strokeStyle = '#ffaaaa';
 			sctx.beginPath();
 			sctx.moveTo(300+sxpos,200+sypos);
 			tht = 2.*Math.PI*ii/snumangles + sang;
@@ -274,6 +293,8 @@ function slam_draw()
 		sctx.lineWidth = 1;
 		for (var ii=0; ii<snumangles; ii++)
 		{
+			if (ii == sscanang) sctx.strokeStyle = '#ff7777';
+			else sctx.strokeStyle = '#ffaaaa';
 			sctx.beginPath();
 			sctx.moveTo(300,200);
 			tht = 2.*Math.PI*ii/snumangles;
@@ -296,18 +317,13 @@ function slam_draw()
 		sctx.moveTo(300, 200);
 		sctx.lineTo(300+15, 200);
 		sctx.stroke();
-		sctx.fillStyle='#666666';
-		sctx.fillText("ROBOT VIEW",30,125);
 	} else { // slam-view
-		sctx.fillStyle='#666666';
-		sctx.fillText("SLAM MAP",150,44);
-		s = 0.5
+		s = 1.0
 		// draw slam map
 		sctx.strokeStyle='#ffffff';
 		sctx.fillStyle='#333333';
-		sctx.fillRect(147,47,306,306);
-		dx = 300./nx;
-		dy = 300./ny;
+		dx = 600./nx;
+		dy = 600./ny;
 		for (var ix=0; ix<nx; ix++)
 		{
 			for (var iy=0; iy<ny; iy++)
@@ -316,7 +332,7 @@ function slam_draw()
 				gval = Math.round(255*(1 - 0.7*map[ix*ny+iy]));
 				bval = Math.round(255*(1 - 0.5*map[ix*ny+iy]));
 				sctx.fillStyle = "rgb("+rval+","+gval+","+bval+")";
-				sctx.fillRect(150+ix*dx,50+iy*dy,dx,dy);
+				sctx.fillRect((ix-0.5)*dx,-100+(iy-0.5)*dy,dx,dy);
 			}
 		}
 		// draw laser scans
@@ -324,6 +340,8 @@ function slam_draw()
 		sctx.lineWidth = 1;
 		for (var ii=0; ii<snumangles; ii++)
 		{
+			if (ii == sscanang) sctx.strokeStyle = '#ff7777';
+			else sctx.strokeStyle = '#ffaaaa';
 			sctx.beginPath();
 			sctx.moveTo(300+sxguess*s,200+syguess*s);
 			tht = 2.*Math.PI*ii/snumangles + sangguess;
@@ -354,9 +372,59 @@ function slam_draw()
 	sctx.fillRect(0, 400, 600, 3);
 	sctx.fillStyle = '#ffffff';
 	sctx.fillRect(3, 403, 594, 44);
+	sctx.fillStyle = '#666666';
+	sctx.fillRect(360,403,3,44);
 
+	// buttons
+	sctx.fillStyle = "#999999";
+	sctx.fillText("VIEWS:", 75, 430);
+	sctx.beginPath();
+	sctx.arc(135,425, 10, 0, 2 * Math.PI, false);
+	sctx.stroke();
+	sctx.fillStyle = "#e1aa9d";
+	if (smode == 0) sctx.fillStyle = "#83e171";
+	sctx.fill();
+	sctx.fillStyle = "#999999";
+	sctx.fillText("GLOBAL",150,430);
 
-	
+	sctx.beginPath();
+	sctx.arc(215,425, 10, 0, 2 * Math.PI, false);
+	sctx.stroke();
+	sctx.fillStyle = "#e1aa9d";
+	if (smode == 1) sctx.fillStyle = "#83e171";
+	sctx.fill();
+	sctx.fillStyle = "#999999";
+	sctx.fillText("ROBOT",230,430);
+
+	sctx.beginPath();
+	sctx.arc(295,425, 10, 0, 2 * Math.PI, false);
+	sctx.stroke();
+	sctx.fillStyle = "#e1aa9d";
+	if (smode == 2) sctx.fillStyle = "#83e171";
+	sctx.fill();
+	sctx.fillStyle = "#999999";
+	sctx.fillText("SLAM",310,430);
+
+	// reset button
+
+  // slider
+	sctx.fillText("ERROR:",370,430);
+  sctx.strokeStyle = '#bbbbbb';
+  sctx.lineWidth = 5;
+	sctx.beginPath();
+  sctx.moveTo(430,425);
+  sctx.lineTo(580,425);
+  sctx.stroke();
+  sctx.lineWidth = 1;
+  sctx.strokeStyle = '#dddddd';
+  for (j=0; j<3; j++)
+  {
+	sctx.moveTo(430+j*150.0/2.0,415);
+	sctx.lineTo(430+j*150.0/2.0,435);
+	sctx.stroke();
+  }
+  sctx.fillStyle = '#555555';
+  sctx.fillRect(430-3+(lidar_error)*150/0.1+1,417,5,16);
 }
 
 
