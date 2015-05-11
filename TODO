@@ -1,5 +1,10 @@
+[ Ordered by approximate priority ]
 
-update repeater, remote tests to use new packet structure
+create hardware button-board
+add button-board monitoring to HWMGR
+test gait on different surfaces, basic obstacles
+develop path-to-command math
+test pre-programmed path accuracy
 test SLAM on real LIDAR scans
-create profiling library? add to cpu codes
 create logging library
+create profiling library? add to cpu codes
