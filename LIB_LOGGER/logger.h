@@ -13,7 +13,10 @@
 #include <thread>
 #include <mutex>
 
-#define QUEUE_SIZE 1024
+// small data chunk is 33 bytes, typical may be 50 bytes
+// give enough space for lots of data
+#define QUEUE_SIZE 10480
+// this gives about 5MB worth of space
 
 using namespace std;
 
@@ -73,6 +76,7 @@ class logger
 {
 public:
 	bool initialized, listening;
+	bool lostdata;
 	bool plaintext;
 	ofstream file;
 	thread listener;
@@ -86,7 +90,7 @@ public:
 	logger();
 	void init(char *filename, bool plaintext = false);
 	void close();
-	void send(data_chunk *d); // logger loop is responsible for freeing memory from chunk
+	bool send(data_chunk *d); // logger loop is responsible for freeing memory from chunk
 };
 
 

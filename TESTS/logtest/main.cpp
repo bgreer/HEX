@@ -21,15 +21,17 @@ int main(void)
 	gettimeofday(&tv, NULL);
 	time0 = (tv.tv_sec) + tv.tv_usec*1e-6;
 
+	// binary is about 10MB/s on an ssd
+	// ascii is about 3MB/s on an ssd
 	log.init("logfile", true);
 
-	for (ii=0; ii<100; ii++)
+	for (ii=0; ii<1000000; ii++)
 	{
 		d = new data_chunk('T', time0); // use time relative to program start
 		d->add((float)ii);
 		val = 0.0;
-		for (ij=0; ij<100000; ij++)
-			val += (rand()/((float)RAND_MAX))-0.5;
+//		for (ij=0; ij<100000; ij++)
+//			val += (rand()/((float)RAND_MAX))-0.5;
 		d->add(val);
 		log.send(d);
 	}
