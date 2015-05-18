@@ -20,6 +20,7 @@ var legx0 = Array(6);
 var legy0 = Array(6);
 var legx = Array(6);
 var legy = Array(6);
+var legtht = Array(6);
 var sweepangle;
 var xpos, ypos, ang;
 
@@ -45,10 +46,19 @@ function init()
 	ypos = 0.0;
 	ang = 0.0;
 
+	legtht[0] = 315.;
+	legtht[1] = 0.0;
+	legtht[2] = 45.;
+	legtht[3] = 135.0;
+	legtht[4] = 180.0;
+	legtht[5] = 225.0;
+
 	// compute initial positions of legs
 	for (var ii=0; ii<6; ii++)
 	{
+		legtht[ii] = (legtht[ii])*Math.PI/180.;
 		tht = 2.0*Math.PI*ii/6.0;
+		tht = legtht[ii]
 		legx0[ii] = 50.*Math.cos(tht);
 		legy0[ii] = 50.*Math.sin(tht);
 		legx[ii] = legx0[ii];
@@ -152,7 +162,7 @@ function run()
 		if (dist > maxdist)
 			maxdist = dist;
 	}
-	sweepangle = Math.sign(cx)*30.0/maxdist;
+	sweepangle = Math.sign(cx)*25.0/maxdist;
 	
 	// center of body rotates and moves
 	ang -= sweepangle*dt*2; // rotation is easy
@@ -268,6 +278,7 @@ function draw()
 	for (var ii=0; ii<6; ii++)
 	{
 		tht = 2.0*Math.PI*ii/6.;
+		tht = legtht[ii];
 		x0 = 300 + 20*Math.cos(tht);
 		y0 = 80 + 20*Math.sin(tht);
 		x1 = 300 + legx[ii];
