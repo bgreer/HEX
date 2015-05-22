@@ -1,8 +1,12 @@
 [ Ordered by approximate priority ]
 
+get due to read lidar data and control lidar motor
+implement pid controller for lidar motor
 create hardware button-board
+create script to monitor button-board, toggle code, wifi, etc
 add button-board monitoring to HWMGR
 test gait on different surfaces, basic obstacles
 develop path-to-command math
 test SLAM on real LIDAR scans
+work on bezier js app
 create profiling library? add to cpu codes
