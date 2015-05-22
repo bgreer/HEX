@@ -124,6 +124,9 @@ void hexapod::step (float dt)
 	dr_xpos += maxsweep*turn_dist*dt*speedmodifier*2.0*cos(dr_ang)*0.83775/fdf;
 	dr_ypos += maxsweep*turn_dist*dt*speedmodifier*2.0*sin(dr_ang)*0.83775/fdf;
 
+	// dr_ang has about 20% error, likely systematic
+	// dr_xpos,dr_ypos have more like 5% error, also likely systematic
+
 	// increment fake time
 	time += dt*speedmodifier;
 	if (time > 1.0) time -= 1.0;
