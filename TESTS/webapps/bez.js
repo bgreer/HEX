@@ -6,7 +6,7 @@ var bdt = 0.005;
 var btime = 0.0;
 var bstep = 0;
 var bmode = 0;
-var blevel = 7;
+var blevel = 1; // [0,5] inclusive
 var bsimrun = false; // allows sim to be paused
 var bdragging = false;
 var bslider;
@@ -197,6 +197,14 @@ function bez_draw()
 	bctx.stroke();
 
 	// helper lines
+	bctx.lineWidth = 2;
+	bctx.strokeStyle = '#dddddd';
+	bctx.beginPath();
+	bctx.moveTo(250+bxanc[0],250-byanc[0]);
+	for (i=1; i<numanc; i++)
+		bctx.lineTo(250+bxanc[i],250-byanc[i]);
+	bctx.stroke();
+
 if (btime < fdf)
 {
 	t = btime/fdf;
@@ -216,8 +224,6 @@ if (btime < fdf)
 		}
 		if (blevel > i)
 		{
-			bctx.lineWidth = 2;
-			bctx.strokeStyle = '#dddddd';
 			bctx.beginPath();
 			bctx.moveTo(250+tempx[0],250-tempy[0]);
 			for (j=1; j<numanc-i-1; j++)
@@ -225,60 +231,17 @@ if (btime < fdf)
 				bctx.lineTo(250+tempx[j],250-tempy[j]);
 			}
 			bctx.stroke();
+			brval = Math.round(200.*(1-i/(numanc-1.)));
+			bbval = Math.round(255.*i/(numanc-1));
+			bctx.fillStyle = "rgb("+brval+",200,"+bbval+")";
+			for (j=0; j<numanc-i-1; j++)
+			{
+				bctx.beginPath();
+				bctx.arc(250+tempx[j],250-tempy[j],4,0,2*Math.PI,false);
+				bctx.fill();
+			}
 		}
 	}
-	/*
-	if (blevel > 1)
-	{
-		bctx.lineWidth = 2;
-		bctx.strokeStyle = '#dddddd';
-		bctx.beginPath();
-		x = bxanc[0] + (bxanc[1]-bxanc[0])*(btime/fdf);
-		y = byanc[0] + (byanc[1]-byanc[0])*(btime/fdf);
-		bctx.moveTo(250+x,250-y);
-		for (var i=2; i<numanc; i++)
-		{
-			x = bxanc[i-1] + (bxanc[i]-bxanc[i-1])*(btime/fdf);
-			y = byanc[i-1] + (byanc[i]-byanc[i-1])*(btime/fdf);
-			bctx.lineTo(250+x,250-y);
-		}
-		bctx.stroke();
-		bctx.fillStyle = '#aaaaff';
-		x0 = bxanc[0] + (bxanc[1]-bxanc[0])*(btime/fdf);
-		y0 = byanc[0] + (byanc[1]-byanc[0])*(btime/fdf);
-		for (var i=2; i<numanc; i++)
-		{
-			x1 = bxanc[i-1] + (bxanc[i]-bxanc[i-1])*(btime/fdf);
-			y1 = byanc[i-1] + (byanc[i]-byanc[i-1])*(btime/fdf);
-			x = x0 + (x1-x0)*(btime/fdf);
-			y = y0 + (y1-y0)*(btime/fdf);
-			bctx.beginPath();
-			bctx.arc(250+x,250-y,4,0,2*Math.PI,false);
-			bctx.fill();
-			x0 = x1;
-			y0 = y1;
-		}
-	}
-	if (blevel > 0)
-	{
-	bctx.lineWidth = 2;
-	bctx.strokeStyle = '#dddddd';
-	bctx.beginPath();
-	bctx.moveTo(250+bxanc[0],250-byanc[0]);
-	for (var i=1; i<numanc; i++)
-		bctx.lineTo(250+bxanc[i], 250-byanc[i]);
-	bctx.stroke();
-	bctx.fillStyle = '#ffaaff';
-	for (var i=1; i<numanc; i++)
-	{
-			x = bxanc[i-1] + (bxanc[i]-bxanc[i-1])*(btime/fdf);
-			y = byanc[i-1] + (byanc[i]-byanc[i-1])*(btime/fdf);
-			bctx.beginPath();
-			bctx.arc(250+x,250-y,4,0,2*Math.PI,false);
-			bctx.fill();
-	}
-	}
-	*/
 }
 	// anchor points
 	bctx.lineWidth = 2;
