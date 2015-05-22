@@ -261,8 +261,8 @@ int main(void)
 					joyval = -event.jaxis.value/32767.;
 					if (event.jaxis.axis == 1) // L stick, yaxis
 					{
-						if (joyval > 0.1) hex.speed = joyval - 0.1;
-						else if (joyval < -0.1) hex.speed = joyval + 0.1;
+						if (joyval > 0.1) hex.speed = 0.5*(joyval - 0.1);
+						else if (joyval < -0.1) hex.speed = 0.5*(joyval + 0.1);
 						else hex.speed = 0.0;
 					}
 					if (event.jaxis.axis == 2) // R stick, xaxis

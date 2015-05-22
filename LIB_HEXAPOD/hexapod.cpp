@@ -18,8 +18,8 @@ void hexapod::step (float dt)
 	if (standheight > 2.0) standheight = 2.0;
 	
 	// make sure speed doesnt change too rapidly
-	smoothspeed = 0.95*smoothspeed + 0.05*speed;
-	smoothturning = 0.95*smoothturning + 0.05*turning;
+	smoothspeed = 0.99*smoothspeed + 0.01*speed;
+	smoothturning = 0.99*smoothturning + 0.01*turning;
 
 	// to control walking, modify speed and turning
 	absspeed = fabs(smoothspeed);
@@ -191,9 +191,11 @@ void hexapod::safeStand ()
 	}
 }
 
-hexapod::hexapod()
+hexapod::hexapod(bool debugflag)
 {
 	int ii;
+
+	debug = debugflag;
 
 	// init constants for each leg
 	length[0] = 5.26; // in cm
@@ -363,13 +365,13 @@ bool hexapod::IKSolve (int leg, float *target)
 		fkangles[2] += delta[1]*0.5;
 		// enforce bounds
 		if (fkangles[1] >= angleub[1]) 
-			{fkangles[1] = angleub[1]-ANGEPS; cout << "ang1ub"<<leg<<" " << angleub[1] << endl;}
+			{fkangles[1] = angleub[1]-ANGEPS; if (debug) cout << "ang1ub"<<leg<<" " << angleub[1] << endl;}
 		if (fkangles[1] <= anglelb[1]) 
-			{fkangles[1] = anglelb[1]+ANGEPS; cout << "ang1lb"<<leg<<" " << anglelb[1] << endl;}
+			{fkangles[1] = anglelb[1]+ANGEPS; if (debug) cout << "ang1lb"<<leg<<" " << anglelb[1] << endl;}
 		if (fkangles[2] >= angleub[2]) 
-			{fkangles[2] = angleub[2]-ANGEPS; cout << "ang2ub"<<leg<<" " << angleub[2] << endl;}
+			{fkangles[2] = angleub[2]-ANGEPS; if (debug) cout << "ang2ub"<<leg<<" " << angleub[2] << endl;}
 		if (fkangles[2] <= anglelb[2]) 
-			{fkangles[2] = anglelb[2]+ANGEPS; cout << "ang2lb"<<leg<<" " << anglelb[2] << endl;}
+			{fkangles[2] = anglelb[2]+ANGEPS; if (debug) cout << "ang2lb"<<leg<<" " << anglelb[2] << endl;}
 		// FK
 		FKSolve(leg, fkangles, fkpos);
 		posz = fkpos[2] - legpos[leg][2];

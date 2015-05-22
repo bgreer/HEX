@@ -77,10 +77,12 @@ public:
 	// dead-reckoning
 	float dr_xpos, dr_ypos, dr_ang;
 
+	bool debug;
+
 	// for walking
 	bezier2d b2d_walk_up, b2d_walk_down;
 
-	hexapod ();
+	hexapod (bool debugflag = false);
 
 	void safeStand ();
 	void step (float dt);
