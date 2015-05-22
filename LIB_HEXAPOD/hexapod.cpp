@@ -5,8 +5,8 @@ void hexapod::step (float dt)
 	int ii, modt;
 	float absspeed, speedsgn, ssfrac, ssfrac2;
 	float cycletime, xpos, ypos, zpos, target[3];
-	float sweepmodifier, speedmodifier, legraise;
-	float turn_dist, thtpos, rpos, maxsweep, maxdist;
+	float legraise;
+	float turn_dist, thtpos, rpos, maxdist;
 	float dist, tht0;
 
 	// clamp speed and turning, just in case
@@ -99,10 +99,9 @@ void hexapod::step (float dt)
 	
 
 	// based on current turning, compute turning math
-	turn_dist = 1e5;
-	if (fabs(smoothturning) < TURN_TOL)
+	if (fabs(smoothturning) <= TURN_TOL)
 		turn_dist = tan((1.0-TURN_TOL)*3.1416/2.0)*50.;
-	if (fabs(smoothturning) > TURN_TOL)
+	else if (fabs(smoothturning) > TURN_TOL)
 		turn_dist = tan((1.0-smoothturning)*3.1416/2.0)*50.;
 	// compute dist between turn_dist and farthest leg
 	maxdist = 0.0;
@@ -111,8 +110,19 @@ void hexapod::step (float dt)
 		dist = sqrt(pow(legpos1[ii][0],2) + pow(legpos1[ii][1]-turn_dist,2));
 		if (dist > maxdist) maxdist = dist;
 	}
+	// each leg can only sweep so much, so use this farthest leg
+	// to determine the angle of sweep that every leg must do
 	maxsweep = 8.*sweepmodifier/maxdist;
 	if (turn_dist < 0.0) maxsweep = -maxsweep;
+	// maxsweep is the angle of sweep for every leg, in radians
+
+	// increment dead-reckoning position
+	// turning radius is "turn_dist"
+	dr_ang += dt*speedmodifier*maxsweep*2.0*0.83775/fdf;
+	if (dr_ang > PI) dr_ang -= 2.*PI;
+	if (dr_ang < -PI) dr_ang += 2.*PI;
+	dr_xpos += maxsweep*turn_dist*dt*speedmodifier*2.0*cos(dr_ang)*0.83775/fdf;
+	dr_ypos += maxsweep*turn_dist*dt*speedmodifier*2.0*sin(dr_ang)*0.83775/fdf;
 
 	// increment fake time
 	time += dt*speedmodifier;
@@ -128,6 +138,7 @@ void hexapod::step (float dt)
 		cycletime = fmod(time + 0.5*ii + (legpos[ii][0]-legpos[0][0])*0.0125, 1.0);
 		
 		// use bezier curve to either be up or down
+		// b2d_walk_down goes between +/- 0.83775
 		if (cycletime < fdf) b2d_walk_down.getPos(cycletime/fdf, &thtpos, &zpos);
 		else b2d_walk_up.getPos((cycletime-fdf)/(1.-fdf), &thtpos, &zpos);
 		// convert thtpos into angle?
@@ -257,7 +268,11 @@ hexapod::hexapod()
 	speed = 0.0;
 	smoothspeed = 0.0;
 	time = 0.0;
-	fdf = 0.55;
+	fdf = 0.50;
+
+	dr_xpos = 0.0;
+	dr_ypos = 0.0;
+	dr_ang = 0.0;
 }
 
 void hexapod::setAngles ()

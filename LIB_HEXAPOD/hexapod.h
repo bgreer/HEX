@@ -1,12 +1,13 @@
 #include <iostream>
 #include <math.h>
 #include "bezier2d.h"
+#define PI 3.14159265
 #define DEGTORAD 0.01745329251
 #define RADTODEG 57.2957795131
 
 #define MAX_SPEED 1.5
 #define SS_DURATION 2.0
-#define TURN_TOL 0.05
+#define TURN_TOL 0.005
 #define MAXITER 300
 // position tolerance in cm
 #define TOLERANCE 0.05
@@ -66,11 +67,15 @@ public:
 	float smoothspeed, fdf;
 	float turning, smoothturning;
 	float standheight;
+	float sweepmodifier, speedmodifier, maxsweep;
 
 	// for safestand
 	float sstime;
 	bool ssrunning;
 	float ssx0[6], ssy0[6], ssz0[6]; // initial positions
+
+	// dead-reckoning
+	float dr_xpos, dr_ypos, dr_ang;
 
 	// for walking
 	bezier2d b2d_walk_up, b2d_walk_down;

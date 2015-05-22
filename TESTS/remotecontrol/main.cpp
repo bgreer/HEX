@@ -7,6 +7,7 @@
 #include <SDL.h>
 #include "/home/bgreer/PROJECTS/HEX/LIB_SERIAL/serial.h"
 #include "/home/bgreer/PROJECTS/HEX/LIB_HEXAPOD/hexapod.h"
+#include "/home/bgreer/PROJECTS/HEX/LIB_LOGGER/logger.h"
 
 /* xboxdrv button ids for xbox 360 controller:
  * 0 = A
@@ -20,7 +21,7 @@
  * 8 = XBOX
  * 9 = Left Stick Click
  * 10 = Right Stick Click
- * 											*/
+*/
 using namespace std;
 
 #define SIZE 128
@@ -30,7 +31,7 @@ double getTime()
 	double ret;
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
-	ret = (tv.tv_sec-1422700000) + tv.tv_usec*1e-6;
+	ret = (tv.tv_sec) + tv.tv_usec*1e-6;
 	return ret;
 }
 
@@ -42,15 +43,20 @@ int main(void)
 	packet *pack, *pack2, *pack_ask, *pack_data;
 	packet *pack_enable, *pack_disable;
 	hexapod hex;
+	data_chunk *d;
+	logger log;
 	SDL_Surface *screen;
 	SDL_Event event;
 	SDL_Joystick *joy;
 	int dsize, psize;
-	double time, lasttime, dt, lastdata;
+	double time, lasttime, dt, lastdata, inittime;
 	uint8_t errcode;
 	float pos, avgtemp, joyval, maxval;
 	unsigned char chk;
 	bool cont, quit;
+
+	log.init("logfile", true);
+	inittime = getTime();
 
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0)
 	{
@@ -199,6 +205,13 @@ int main(void)
 		time += dt;
 		lasttime = getTime();
 		hex.step(dt);
+		d = new data_chunk('P', inittime);
+		d->add(hex.dr_ang);
+		d->add(hex.dr_xpos);
+		d->add(hex.dr_ypos);
+		d->add(hex.maxsweep);
+		d->add(hex.speedmodifier);
+		log.send(d);
 		// package positions
 		for (ii=0; ii<18; ii++)
 		{
@@ -226,7 +239,9 @@ int main(void)
 					cout << "SERVO ERROR: "<< (int)(errcode) << " ON SERVO " << ii << endl;
 			}
 			avgtemp /= 18.;
-			cout << time << " " << avgtemp << " " << maxval << endl;
+			d = new data_chunk('T', inittime);
+			d->add(avgtemp);
+			log.send(d);
 			delete pack2;
 			lastdata = getTime();
 			pack2 = NULL;
@@ -243,7 +258,7 @@ int main(void)
 					if (event.jbutton.button == 7) quit = true;
 					break;
 				case SDL_JOYAXISMOTION:
-					joyval = event.jaxis.value/32767.;
+					joyval = -event.jaxis.value/32767.;
 					if (event.jaxis.axis == 1) // L stick, yaxis
 					{
 						if (joyval > 0.1) hex.speed = joyval - 0.1;
@@ -271,6 +286,7 @@ int main(void)
 	cout << "Quitting.." << endl;
 	ser.send(pack_disable);
 	delete pack;
+	log.close();
 	ser.close();
 
 }
