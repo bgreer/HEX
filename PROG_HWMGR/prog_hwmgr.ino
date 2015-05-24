@@ -4,8 +4,26 @@
 #define PREBUFF_SIZE 1024
 #define LOOP_DELAY 1
 
+#define MOTOR_MAXVAL 150
+#define MOTOR_MINVAL 50
+#define MOTOR_PIN 8
+#define MOTOR_GUESSVAL 100
+
+// PID tuning params
+#define PID_P 0.5
+#define PID_I 0.1
+#define PID_D 0.1
+
 // TARGET: UDOO Arduin Due
 
+// for PID motor controller
+uint8_t motorval;
+float currspeed, targetspeed;
+float interror, lasterror;
+uint8_t lidar_packet[22]; // for xv-11 lidar packet
+int lidar_packet_index;
+float lidar_dist[360], lidar_strength[360];
+uint32_t lastpidupdate;
 
 // define a helping class
 class ser_construct
@@ -29,6 +47,33 @@ public:
 };
 
 ser_construct ser0, ser1;
+void computePID ()
+{
+	float error, deriv, dt;
+	dt = (millis()-lastpidupdate)*0.001;
+
+	error = targetspeed - currspeed;
+	interror += error*dt;
+	if (dt > 0.0)
+		deriv = (error-lasterror)/dt;
+	else
+		deriv = 0.0;
+
+
+	motorval = MOTOR_GUESSVAL;
+	motorval += PID_P * error;
+	motorval += PID_I * interror;
+	motorval -= PID_D * deriv;
+	
+	lasterror = error;
+
+	// make sure it stays in range
+	if (motorval > MOTOR_MAXVAL) motorval = MOTOR_MAXVAL;
+	if (motorval < MOTOR_MINVAL) motorval = MOTOR_MINVAL;
+	// update the pwm control
+	analogWrite(MOTOR_PIN, motorval);
+	lastpidupdate = millis();
+}
 
 void parsePacket (packet *pack)
 {
@@ -55,25 +100,73 @@ void parsePacket (packet *pack)
 
 	// ser0_packet will be deleted after this function exits
 }
+void lidar_parsePacket()
+{
+  int ii, ang;
+  uint32_t chk32;
+  uint16_t temp, chk_expected;
+  uint16_t pos_offset;
+  uint8_t invalid[4], warning[4];
+  float speed, dist[4], signal[4], tht;
+  float val, x, y;
+  
+  // first, check checksum
+  chk32 = 0;
+  for (ii=0; ii<10; ii++)
+  {
+    temp = (uint16_t)lidar_packet[ii*2] + (((uint16_t)lidar_packet[ii*2+1])<<8);
+    chk32 = (chk32 << 1) + temp;
+  }
+  chk32 = (chk32 & 0x7fff) + ((chk32 >> 15) & 0x7fff);
+  chk_expected = lidar_packet[20] | ((lidar_packet[21])<<8);
+  
+  // proceed if checksum is valid
+  if (chk32 == chk_expected)
+  {
+		// info for this entire lidar packet
+    pos_offset = (lidar_packet[1]-0xA0) * 4;
+    currspeed = ((uint16_t)lidar_packet[2] + (((uint16_t)lidar_packet[3])<<8))/64.;
+		if (millis()-lastpidupdate > 250)
+			computePID();
+    
+		// info for each of the four measurements
+    for (ii=0; ii<4; ii++)
+    {
+      dist[ii] = ((uint16_t)lidar_packet[4+ii*4] + 
+        (((uint16_t)(lidar_packet[5+ii*4] & 0x3f))<<8))/1000.;
+      invalid[ii] = (lidar_packet[5] & 0x80)>>7;
+      warning[ii] = (lidar_packet[5] & 0x40)>>6;
+      signal[ii] = (uint16_t)lidar_packet[6+ii*4] + 
+        (((uint16_t)(lidar_packet[7+ii*4]))<<8);
+    }
+  }
+}
 
 void setup ()
 {
-	int ii;
-	unsigned char trash;
+	pinMode(MOTOR_PIN, OUTPUT);
+	analogWrite(MOTOR_PIN, 0);
 	Serial.begin(115200); // connection to i.MX6 processor
 	Serial.setTimeout(1);
 	Serial1.begin(115200); // arbotix-m, servo controller
 	Serial1.setTimeout(1);
-	//Serial2.begin(115200); // teensy 3.1, lidar controller
+	Serial2.begin(115200); // XV-11 LIDAR unit
 	randomSeed(analogRead(0));
 
 	// set up serial constructs
 	ser0.init(&Serial);
 	ser1.init(&Serial1);
 
-	delay(50);
 	// setup done, ready to act
+	lidar_packet_index = 0;
+	interror = 0.0;
+	currspeed = 0.0;
+	targetspeed = 320.0; // in units of 64th of an rpm (so 5 rpm)
+	lastpidupdate = millis();
+	analogWrite(MOTOR_PIN, MOTOR_GUESSVAL);
+	delay(150);
 }
+
 
 void checkSerial (ser_construct *s)
 {
@@ -143,10 +236,36 @@ void checkSerial (ser_construct *s)
 
 }
 
+void checkLidar ()
+{
+  byte in;
+  
+  while (Serial2.available())
+  {
+    in = Serial2.read();
+    if (in==0xFA)
+    {
+      lidar_packet[0] = 0xFA;
+      lidar_packet_index = 1;
+    } else if (lidar_packet_index > 0)
+    {
+      lidar_packet[lidar_packet_index] = in;
+      lidar_packet_index++;
+      if (lidar_packet_index==22)
+      {
+        lidar_parsePacket();
+        lidar_packet_index = 0;
+      }
+    }
+  }
+}
+
 void loop ()
 {
 
 	checkSerial(&ser0); // check comms with i.mx6
 	checkSerial(&ser1); // check comms with arbotix-m
+	checkLidar(); // check comms with lidar unit
 	delay(LOOP_DELAY);
+
 }
