@@ -1,4 +1,5 @@
 #include <SDL.h>
+#include "/home/bgreer/PROJECTS/HEX/LIB_SLAM/slam.h"
 #include "/home/bgreer/PROJECTS/HEX/LIB_SERIAL/serial.h"
 #include "/home/bgreer/PROJECTS/HEX/LIB_HEXAPOD/hexapod.h"
 #include "/home/bgreer/PROJECTS/HEX/LIB_LOGGER/logger.h"
@@ -15,7 +16,7 @@ void updateManualControl (bool *quit, float *speed, float *turning,
 		float *height);
 
 // actions.cpp
-bool getLIDARData (float *dist, serial *ser, bool blocking);
+scan* getLIDARData (serial *ser, bool blocking);
 void setLIDARSpin (serial *ser, bool enabled);
 void performSafeStand (hexapod *hex, serial *ser);
 void sendServoPositions (hexapod *hex, serial *ser);

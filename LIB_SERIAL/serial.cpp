@@ -44,6 +44,7 @@ void listener_loop (serial *ser)
 			ser->send_queue_packets.erase(ser->send_queue_packets.begin());
 			ser->send_queue_confirm.erase(ser->send_queue_confirm.begin());
 			ret = write(ser->fd, buff, size);
+			ser->numsent ++;
 			if (ptr != NULL) *ptr = true;
 			ser->send_queue_mutex.unlock();
 		}
@@ -147,6 +148,8 @@ void serial::init (const char *portname, bool debugflag)
 		r = ioctl(fd, TIOCSSERIAL, &kernel_serial_settings);
 		if (r >= 0) printf("set linux low latency mode\n");
 	}
+	numsent = 0;
+	numqueued = 0;
 	debug = debugflag;
 	listening = true;
 	listener = thread(listener_loop, this);
@@ -165,6 +168,8 @@ void serial::init_old (const char *portname, bool debugflag)
 	set_interface_attribs (B230400, 0);
 	set_blocking (0);
 
+	numsent = 0;
+	numqueued = 0;
 	debug = debugflag;
 	listening = true;
 	listener = thread(listener_loop, this);
@@ -181,6 +186,7 @@ void serial::send (packet *pack, bool blocking)
 {
 	bool *sent;
 	bool sent_local;
+	long index;
 
 	sent = NULL;
 	if (blocking)
@@ -188,10 +194,12 @@ void serial::send (packet *pack, bool blocking)
 		sent = new bool;
 		*sent = false;
 	}
-	send_queue_mutex.lock();
 	pack->setChecksum();
+	send_queue_mutex.lock();
 	send_queue_packets.push_back(pack);
 	send_queue_confirm.push_back(sent);
+	index = numqueued;
+	numqueued ++;
 	send_queue_mutex.unlock();
 
 	if (blocking)
@@ -201,10 +209,9 @@ void serial::send (packet *pack, bool blocking)
 		{
 			usleep(100);
 			send_queue_mutex.lock();
-			sent_local = sent;
+			if (numsent >= numqueued) sent_local = true;
 			send_queue_mutex.unlock();
 		}
-		delete sent;
 	}
 }
 

@@ -31,6 +31,7 @@ public:
 	int fd;
 	thread listener;
 	// send queue
+	long numsent, numqueued;
 	mutex send_queue_mutex;
 	vector<packet*> send_queue_packets;
 	vector<bool*> send_queue_confirm;
@@ -42,7 +43,7 @@ public:
 	void init(const char *portname, bool debugflag = false);
 	void init_old(const char *portname, bool debugflag = false);
 	void close();
-	void send(packet *pack, bool blocking = false);
+	void send(packet *pack, bool blocking = true);
 	packet* recv(unsigned char tag, uint8_t tag2, bool blocking);
 	int set_interface_attribs (int speed, int parity);
 	void set_blocking (int should_block);

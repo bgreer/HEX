@@ -1,9 +1,11 @@
 #include "header.h"
 
-bool getLIDARData (float *dist, serial *ser, bool blocking)
+scan* getLIDARData (serial *ser, bool blocking)
 {
 	uint16_t d, ii;
 	float fd;
+	int num;
+	scan *s;
 	packet *pack, *recv;
 
 	// first, check for a packet that's already waiting
@@ -22,26 +24,38 @@ bool getLIDARData (float *dist, serial *ser, bool blocking)
 		} else {
 			// no immediate data, no blocking
 			// so no data updated
-			return false;
+			return NULL;
 		}
 	}
 
 	// we have a packet, parse it!
-	if (dist != NULL)
+	num = 0;
+	for (ii=0; ii<360; ii++)
 	{
-		for (ii=0; ii<360; ii++)
+		memcpy(&d, &(recv->data[1+ii*2]), sizeof(uint16_t));
+		fd = d*0.1; // turn into cm;
+		// data culling
+		if (fd >= 10.0) num++;
+	}
+	s = new scan(num);
+	num = 0;
+	for (ii=0; ii<360; ii++)
+	{
+		memcpy(&d, &(recv->data[1+ii*2]), sizeof(uint16_t));
+		fd = d*0.1; // turn into cm;
+		// data culling
+		if (fd >= 10.0)
 		{
-			memcpy(&d, &(recv->data[1+ii*2]), sizeof(uint16_t));
-			fd = d*0.1; // turn into cm;
-			// data culling
-			if (fd < 10.0) fd = -1.0;
-			dist[ii] = fd;
+			s->angle[num] = ii*PI/180.;
+			s->dist[num] = fd;
+			s->weight[num] = 1.0;
+			num++;
 		}
 	}
 
 	delete recv;
 
-	return true;
+	return s;
 
 }
 

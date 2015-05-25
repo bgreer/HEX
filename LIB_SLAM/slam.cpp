@@ -103,8 +103,8 @@ void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 	{
 		for (ypos=0; ypos<ny; ypos++)
 		{
-			tht = atan2(ypos-ny/2-y_val/scale, xpos-nx/2-x_val/scale);
-			dist = sqrt(pow((ypos-ny/2)*scale-y_val,2)+pow((xpos-nx/2)*scale-x_val,2));
+			tht = atan2(ypos-ny/2-curry/scale, xpos-nx/2-currx/scale);
+			dist = sqrt(pow((ypos-ny/2)*scale-curry,2)+pow((xpos-nx/2)*scale-currx,2));
 			diff = 1e6;
 			for (ii=0; ii<s->num; ii++)
 			{
@@ -118,8 +118,7 @@ void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 				}
 			}
 			if (dist < s->dist[ind])
-				map[xpos*ny+ypos] *= 0.95;
-			//else map[xpos*ny+ypos] *= 0.9999;
+				map[xpos*ny+ypos] *= 0.90;
 		}
 	}
 
@@ -224,7 +223,7 @@ bool slam::step (scan *s, float x_guess, float y_guess, float ang_guess)
 	step = 1.0;
 	iter = 0;
 	// iterate until converged or failed
-	while (iter < MAXITER && step > STEPTOL)
+	while (iter < SLAM_MAXITER && step > STEPTOL)
 	{
 		// compute psi and jacobian
 		psi = reg_a*pow(xval-x_guess,2) + reg_b*pow(yval-y_guess,2) 
@@ -282,7 +281,7 @@ bool slam::step (scan *s, float x_guess, float y_guess, float ang_guess)
 //		cout << endl;
 	}
 	// if converged, apply new position and heading
-	if (iter == MAXITER)
+	if (iter == SLAM_MAXITER)
 	{
 		return false;
 	} else {

@@ -18,8 +18,8 @@ void hexapod::step (float dt)
 	if (standheight > 2.0) standheight = 2.0;
 	
 	// make sure speed doesnt change too rapidly
-	smoothspeed = 0.99*smoothspeed + 0.01*speed;
-	smoothturning = 0.99*smoothturning + 0.01*turning;
+	smoothspeed = 0.95*smoothspeed + 0.05*speed;
+	smoothturning = 0.95*smoothturning + 0.05*turning;
 
 	// to control walking, modify speed and turning
 	absspeed = fabs(smoothspeed);
@@ -271,6 +271,8 @@ hexapod::hexapod(bool debugflag)
 	b2d_walk_down.addPoint(-0.83775,0);
 
 	speed = 0.0;
+	turning = 0.0;
+	standheight = 0.0;
 	smoothspeed = 0.0;
 	time = 0.0;
 	fdf = 0.50;

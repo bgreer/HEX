@@ -10,8 +10,10 @@
 
 using namespace std;
 
+#ifndef PI
 #define PI 3.14159265359
-#define MAXITER 1000
+#endif
+#define SLAM_MAXITER 1000
 #define STEPTOL 1e-4
 
 class slam

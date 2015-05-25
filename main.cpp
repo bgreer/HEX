@@ -14,20 +14,24 @@ int main(void)
 {
 	int ii, ij, ik, ix, iy, size, ind;
 	int cx, cy, attempts;
+	// so many custom classes!
 	serial ser;
 	packet *pack, *pack2, *pack_ask, *pack_data;
 	hexapod hex;
 	data_chunk *d;
 	logger log;
+	scan *lidar_scan;
+	slam slammer(128,128,7.0);
 	SDL_Surface *screen;
 	SDL_Joystick *joy;
-	int dsize, psize;
 	double time, lasttime, dt, lastdata, inittime;
 	uint8_t errcode;
 	float pos, avgtemp, joyval, maxval;
 	float scan_dist[360];
 	unsigned char chk;
 	bool quit;
+
+	slammer.setRegularization(0.0,0.0,0.0);
 
 	// begin logging to file
 	// this launches a new thread for async logging
@@ -92,9 +96,7 @@ int main(void)
 
 	
 	// sit / stand
-	dsize = 100;
-	psize = SIZE;
-	pack = new packet(dsize, 'A', psize);
+	pack = new packet(100, 'A');
 	pack->data[0] = 0x01; // set servo positions
 
 	// max useable speed is 2.0 -> 1 foot per second
@@ -107,17 +109,19 @@ int main(void)
 	usleep(50*1000);
 	setLIDARSpin(&ser, true);
 
-	// wait a while
-	usleep(1000*1000*5);
-	// get lidar data
-	for (ii=0; ii<10; ii++)
+	// wait a while for lidar to get up to speed
+	usleep(1000*1000*4);
+	// get lidar data, integrate slam map
+	for (ii=0; ii<20; ii++)
 	{
-		if (getLIDARData(scan_dist, &ser, false))
-			for (ij=0; ij<360; ij++)
-				if (scan_dist[ij] > 0.0)
-					cout << ij << "\t" << scan_dist[ij] << endl;
-		sleep(1);
+		if ((lidar_scan=getLIDARData(&ser, true)) != NULL)
+		{
+			cout << "integrating.." << endl;
+			slammer.integrate(lidar_scan, 0.0, 0.0, 0.0);
+		}
+		usleep(1000*100);
 	}
+	slammer.outputMap("map");
 
 	// get ready to ask for data
 	pack_ask = new packet(16, 'A');

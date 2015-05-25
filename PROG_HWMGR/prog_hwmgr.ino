@@ -107,6 +107,7 @@ void parsePacket (packet *pack)
 				} else if (pack->data[1] == 0x01) {
 					motorval = MOTOR_GUESSVAL;
 					analogWrite(MOTOR_PIN, motorval);
+					delay(500);
 					lastpidupdate = millis();
 					lidar_spinning = true;
 				}
@@ -180,6 +181,7 @@ void setup ()
 	Serial1.begin(115200); // arbotix-m, servo controller
 	Serial1.setTimeout(1);
 	Serial2.begin(115200); // XV-11 LIDAR unit
+	Serial2.setTimeout(1);
 	randomSeed(analogRead(0));
 
 	// set up serial constructs
@@ -269,11 +271,14 @@ void checkSerial (ser_construct *s)
 
 void checkLidar ()
 {
+	int num;
   byte in;
   
-  while (Serial2.available())
+	num = 0;
+  while (Serial2.available() && num < 1024)
   {
     in = Serial2.read();
+		num++;
     if (in==0xFA)
     {
       lidar_packet[0] = 0xFA;

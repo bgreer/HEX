@@ -1,7 +1,9 @@
 #include <iostream>
 #include <math.h>
 #include "bezier2d.h"
+#ifndef PI
 #define PI 3.14159265
+#endif
 #define DEGTORAD 0.01745329251
 #define RADTODEG 57.2957795131
 
