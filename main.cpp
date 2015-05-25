@@ -13,18 +13,19 @@ using namespace std;
 int main(void)
 {
 	int ii, ij, ik, ix, iy, size, ind;
-	int cx, cy, attempts;
+	int cx, cy, attempts, scans;
 	// so many custom classes!
 	serial ser;
 	packet *pack, *pack2, *pack_ask, *pack_data;
 	hexapod hex;
-	data_chunk *d;
+	data_chunk *d, *d2;
 	logger log;
 	scan *lidar_scan;
 	slam slammer(128,128,7.0);
 	SDL_Surface *screen;
 	SDL_Joystick *joy;
 	double time, lasttime, dt, lastdata, inittime;
+	double lastslam, lastscan;
 	uint8_t errcode;
 	float pos, avgtemp, joyval, maxval;
 	float scan_dist[360];
@@ -35,7 +36,7 @@ int main(void)
 
 	// begin logging to file
 	// this launches a new thread for async logging
-	log.init("logfile", false);
+	log.init("logfile", true);
 	inittime = getTime();
 
 	// set up sdl for joystick usage
@@ -109,19 +110,27 @@ int main(void)
 	usleep(50*1000);
 	setLIDARSpin(&ser, true);
 
+	// servos are enabled, try to stand up safely
+	cout << "Performing Safe Stand.." << endl;
+	performSafeStand(&hex, &ser);
+
 	// wait a while for lidar to get up to speed
-	usleep(1000*1000*4);
+	usleep(1000*1000*3);
 	// get lidar data, integrate slam map
-	for (ii=0; ii<20; ii++)
+	cout << "Obtaining initial LIDAR map.." << endl;
+	scans = 0;
+	while (scans < 20)
 	{
 		if ((lidar_scan=getLIDARData(&ser, true)) != NULL)
 		{
-			cout << "integrating.." << endl;
 			slammer.integrate(lidar_scan, 0.0, 0.0, 0.0);
+			delete lidar_scan;
+			scans ++;
 		}
 		usleep(1000*100);
 	}
-	slammer.outputMap("map");
+	lastscan = getTime();
+	lastslam = getTime();
 
 	// get ready to ask for data
 	pack_ask = new packet(16, 'A');
@@ -130,9 +139,6 @@ int main(void)
 	pack_ask->data[2] = 'U';
 	pack_data = NULL;
 
-	// servos are enabled, try to stand up safely
-	cout << "Performing Safe Stand.." << endl;
-	performSafeStand(&hex, &ser);
 
 	// set up timing data
 	time = 0.0;
@@ -153,16 +159,32 @@ int main(void)
 		// send updated servo positions to servo controller
 		sendServoPositions(&hex, &ser);
 
+
+		if (getTime() - lastscan > 0.2)
+		{
+			if ((lidar_scan=getLIDARData(&ser, true)) != NULL)
+			{
+				if (getTime() - lastslam > 1.0)
+					slammer.step(lidar_scan, 0.0, 0.0, 0.0);
+				delete lidar_scan;
+			}
+		}
+
 		// log hexlib internal tracking
 		d = new data_chunk('P', inittime);
-		d->add(hex.dr_ang);
 		d->add(hex.dr_xpos);
 		d->add(hex.dr_ypos);
-		d->add(hex.maxsweep);
-		d->add(hex.speedmodifier);
+		d->add(hex.dr_ang);
 		log.send(d);
+		// log slam tracking
+		d2 = new data_chunk('S', inittime);
+		d2->add(slammer.currx);
+		d2->add(slammer.curry);
+		d2->add(slammer.currang);
+		log.send(d2);
 
 		// ask for data from servos
+		/*
 		if (getTime() - lastdata > 1.0)
 		{
 		if ((pack2=ser.recv('U',0x03,false)) != NULL)
@@ -189,7 +211,7 @@ int main(void)
 			ser.send(pack_ask);
 			usleep(20*1000);
 		}
-		}
+		}*/
 		
 		// look for joystick commands
 		updateManualControl(&quit, &(hex.speed), &(hex.turning),
@@ -201,6 +223,7 @@ int main(void)
 
 	cout << "Quitting.." << endl;
 
+	slammer.outputMap("map");
 	// stop the lidar unit
 	setLIDARSpin(&ser, false);
 

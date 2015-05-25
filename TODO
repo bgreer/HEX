@@ -4,7 +4,6 @@ let logger find unique filename for log file
 create hardware button-board
 create script to monitor button-board, toggle code, wifi, etc
 add button-board monitoring to HWMGR
-test gait on different surfaces, basic obstacles
 develop path-to-command math
 test SLAM on real LIDAR scans
 work on bezier js app
