@@ -1,7 +1,7 @@
 [ Ordered by approximate priority ]
 
 get due to read lidar data and control lidar motor
-implement pid controller for lidar motor
+let logger find unique filename for log file
 create hardware button-board
 create script to monitor button-board, toggle code, wifi, etc
 add button-board monitoring to HWMGR

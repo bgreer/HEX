@@ -43,7 +43,7 @@ public:
 	void init_old(const char *portname, bool debugflag = false);
 	void close();
 	void send(packet *pack, bool blocking = false);
-	packet* recv(unsigned char tag, bool blocking);
+	packet* recv(unsigned char tag, uint8_t tag2, bool blocking);
 	int set_interface_attribs (int speed, int parity);
 	void set_blocking (int should_block);
 };

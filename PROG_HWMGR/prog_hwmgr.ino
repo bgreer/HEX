@@ -22,8 +22,13 @@ float currspeed, targetspeed;
 float interror, lasterror;
 uint8_t lidar_packet[22]; // for xv-11 lidar packet
 int lidar_packet_index;
-float lidar_dist[360], lidar_strength[360];
+uint16_t lidar_dist[360];
+float lidar_strength[360];
+//uint8_t lidar_warning[360], lidar_invalid[360];
 uint32_t lastpidupdate;
+bool lidar_spinning;
+packet *pack_lidar;
+unsigned char pack_lidar_prebuff[1024];
 
 // define a helping class
 class ser_construct
@@ -89,7 +94,30 @@ void parsePacket (packet *pack)
 
 	if (pack->getTag() == 'D') // we are the target!
 	{
-		
+		// look at first byte of data to decide what action to take
+		switch (pack->data[0])
+		{
+			case 0x01: // set lidar enabled / disabled
+				if (pack->data[1] == 0x00)
+				{
+					motorval = 0;
+					analogWrite(MOTOR_PIN, motorval);
+					lastpidupdate = millis();
+					lidar_spinning = false;
+				} else if (pack->data[1] == 0x01) {
+					motorval = MOTOR_GUESSVAL;
+					analogWrite(MOTOR_PIN, motorval);
+					lastpidupdate = millis();
+					lidar_spinning = true;
+				}
+				break;
+			case 0x02: // request lidar data
+				pack_lidar->data[0] = 0x02; // lidar distance data
+				memcpy(&(pack_lidar->data[1]), lidar_dist, 360*sizeof(uint16_t));
+				memset(lidar_dist,0x00,360*sizeof(uint16_t)); // clear after taken
+				Serial.write(pack_lidar->buffer, *(pack_lidar->p_packet_size));
+				break;
+		}		
 	} else if (pack->getTag() == 'U') { // send to udoo
 		Serial.write(pack->buffer, *(pack->p_packet_size));
 	} else if (pack->getTag() == 'A') { // send to arbotix-m
@@ -102,13 +130,11 @@ void parsePacket (packet *pack)
 }
 void lidar_parsePacket()
 {
-  int ii, ang;
+  int ii;
   uint32_t chk32;
   uint16_t temp, chk_expected;
   uint16_t pos_offset;
-  uint8_t invalid[4], warning[4];
-  float speed, dist[4], signal[4], tht;
-  float val, x, y;
+	uint8_t strength_warning, invalid;
   
   // first, check checksum
   chk32 = 0;
@@ -126,18 +152,21 @@ void lidar_parsePacket()
 		// info for this entire lidar packet
     pos_offset = (lidar_packet[1]-0xA0) * 4;
     currspeed = ((uint16_t)lidar_packet[2] + (((uint16_t)lidar_packet[3])<<8))/64.;
-		if (millis()-lastpidupdate > 250)
+		if (millis()-lastpidupdate > 250 && lidar_spinning)
 			computePID();
     
 		// info for each of the four measurements
     for (ii=0; ii<4; ii++)
     {
-      dist[ii] = ((uint16_t)lidar_packet[4+ii*4] + 
-        (((uint16_t)(lidar_packet[5+ii*4] & 0x3f))<<8))/1000.;
-      invalid[ii] = (lidar_packet[5] & 0x80)>>7;
-      warning[ii] = (lidar_packet[5] & 0x40)>>6;
-      signal[ii] = (uint16_t)lidar_packet[6+ii*4] + 
+			lidar_dist[ii+pos_offset] = (uint16_t)lidar_packet[4+ii*4] + 
+				(((uint16_t)(lidar_packet[5+ii*4]&0x3f))<<8);
+      invalid = (lidar_packet[5] & 0x80)>>7;
+      strength_warning = (lidar_packet[5] & 0x40)>>6;
+      lidar_strength[ii+pos_offset] = (uint16_t)lidar_packet[6+ii*4] + 
         (((uint16_t)(lidar_packet[7+ii*4]))<<8);
+
+//			if (invalid || strength_warning)
+//				lidar_dist[ii+pos_offset] = 0;
     }
   }
 }
@@ -146,7 +175,7 @@ void setup ()
 {
 	pinMode(MOTOR_PIN, OUTPUT);
 	analogWrite(MOTOR_PIN, 0);
-	Serial.begin(115200); // connection to i.MX6 processor
+	Serial.begin(230400); // connection to i.MX6 processor
 	Serial.setTimeout(1);
 	Serial1.begin(115200); // arbotix-m, servo controller
 	Serial1.setTimeout(1);
@@ -158,12 +187,14 @@ void setup ()
 	ser1.init(&Serial1);
 
 	// setup done, ready to act
+	memset(lidar_dist,0x00,360*sizeof(uint16_t));
+	pack_lidar = new packet(360*2+2, 'U', 0, pack_lidar_prebuff);
 	lidar_packet_index = 0;
 	interror = 0.0;
 	currspeed = 0.0;
 	targetspeed = 320.0; // in units of 64th of an rpm (so 5 rpm)
 	lastpidupdate = millis();
-	analogWrite(MOTOR_PIN, MOTOR_GUESSVAL);
+	lidar_spinning = false;
 	delay(150);
 }
 

@@ -13,8 +13,9 @@ SDL = -I/usr/local/include/SDL -L/usr/local/lib -lSDL
 
 LIBS = $(SDL) -D_GNU_SOURCE=1 -D_REENTRANT -pthread -lpthread -lrt -ldl -lm
 
-hex : main.cpp manual.cpp actions.cpp $(SERIAL) $(PACKET) $(HEXAPOD) $(LOGGER)
-	g++ -std=c++0x -O3 -g -o hex main.cpp manual.cpp actions.cpp $(SERIAL) $(PACKET) $(HEXAPOD) $(LOGGER) $(LIBS)
+# this needs to be cleaned up
+hex : main.cpp manual.cpp actions.cpp monitor.cpp $(SERIAL) $(PACKET) $(HEXAPOD) $(LOGGER)
+	g++ -std=c++0x -O3 -g -o hex main.cpp manual.cpp actions.cpp monitor.cpp $(SERIAL) $(PACKET) $(HEXAPOD) $(LOGGER) $(LIBS)
 
 clean :
 	rm -f hex

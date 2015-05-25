@@ -2,7 +2,7 @@
 
 // manual control
 
-void initSDL (SDL_Screen *screen, SDL_Joystick *joy)
+int initSDL (SDL_Surface *screen, SDL_Joystick *joy)
 {
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0)
 	{
@@ -28,7 +28,7 @@ void initSDL (SDL_Screen *screen, SDL_Joystick *joy)
 		cout << "ERROR: could not find joystick!" << endl;
 		return -1;
 	}
-
+	return 0;
 }
 
 void updateManualControl (bool *quit, float *speed, float *turning, 

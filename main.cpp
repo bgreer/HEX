@@ -6,6 +6,7 @@
 #include <iomanip>
 #include "header.h"
 
+using namespace std;
 
 #define SIZE 128
 
@@ -15,7 +16,6 @@ int main(void)
 	int cx, cy, attempts;
 	serial ser;
 	packet *pack, *pack2, *pack_ask, *pack_data;
-	packet *pack_enable, *pack_disable;
 	hexapod hex;
 	data_chunk *d;
 	logger log;
@@ -25,16 +25,17 @@ int main(void)
 	double time, lasttime, dt, lastdata, inittime;
 	uint8_t errcode;
 	float pos, avgtemp, joyval, maxval;
+	float scan_dist[360];
 	unsigned char chk;
 	bool quit;
 
 	// begin logging to file
 	// this launches a new thread for async logging
-	log.init("logfile", true);
+	log.init("logfile", false);
 	inittime = getTime();
 
 	// set up sdl for joystick usage
-	initSDL(screen, joy); // manual.cpp
+	if (initSDL(screen, joy) != 0) return -1;
 
 	// set up serial connection to Due
 	// this launches a new thread for serial listening
@@ -44,16 +45,6 @@ int main(void)
 	cout << "Press Start to connect." << endl;
 	getButtonPress(7, true); // blocking wait for Start button, manual.cpp
 
-	// prep the motor enable / disable packets
-	pack_enable = new packet(18, 'A');
-	pack_enable->data[0] = 0x03;
-	pack_disable = new packet(18, 'A');
-	pack_disable->data[0] = 0x03;
-	for (ii=0; ii<18; ii++)
-	{
-		pack_enable->data[ii+1] = 0x01;
-		pack_disable->data[ii+1] = 0x00;
-	}
 	
 	// before continuing, ask scontroller for servo data
 	// mostly to make sure it's ready to do stuff
@@ -74,7 +65,7 @@ int main(void)
 	// until you hear something back
 	pack2 = NULL;
 	attempts = 0;
-	while ((pack2 = ser.recv('U', false)) == NULL && attempts < 10)
+	while ((pack2 = ser.recv('U', 0x01, false)) == NULL && attempts < 10)
 	{
 		attempts ++;
 		ser.send(pack, true);
@@ -94,12 +85,10 @@ int main(void)
 	{
 		memcpy(&pos, pack2->data+1+ii*(sizeof(float)+sizeof(uint8_t)), 
 				sizeof(float));
-		cout << pos << endl;
 		hex.servoangle[ii] = pos;
 	}
 	hex.setAngles();
 	delete pack2;
-
 
 	
 	// sit / stand
@@ -112,12 +101,28 @@ int main(void)
 	hex.speed = 0.0; // in cycles per second
 	hex.turning = 0.0; // [-1,1], rotation in z-axis
 
-	ser.send(pack_enable);
+	enableServos(&ser);
+
+	// start up lidar unit
+	usleep(50*1000);
+	setLIDARSpin(&ser, true);
+
+	// wait a while
+	usleep(1000*1000*5);
+	// get lidar data
+	for (ii=0; ii<10; ii++)
+	{
+		if (getLIDARData(scan_dist, &ser, false))
+			for (ij=0; ij<360; ij++)
+				if (scan_dist[ij] > 0.0)
+					cout << ij << "\t" << scan_dist[ij] << endl;
+		sleep(1);
+	}
 
 	// get ready to ask for data
 	pack_ask = new packet(16, 'A');
 	pack_ask->data[0] = 0x05;
-	pack_ask->data[1] = 0x02; // want temperature
+	pack_ask->data[1] = 0x03; // want temperature
 	pack_ask->data[2] = 'U';
 	pack_data = NULL;
 
@@ -156,7 +161,7 @@ int main(void)
 		// ask for data from servos
 		if (getTime() - lastdata > 1.0)
 		{
-		if ((pack2=ser.recv('U',false)) != NULL)
+		if ((pack2=ser.recv('U',0x03,false)) != NULL)
 		{
 			maxval = 1e-10;
 			avgtemp = 0.0;
@@ -192,8 +197,11 @@ int main(void)
 
 	cout << "Quitting.." << endl;
 
+	// stop the lidar unit
+	setLIDARSpin(&ser, false);
+
 	// tell the servos to relax
-	ser.send(pack_disable);
+	disableServos(&ser);
 	delete pack;
 
 	// close serial port

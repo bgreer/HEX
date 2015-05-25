@@ -5,25 +5,24 @@
 
 using namespace std;
 
-// code in a header? blasphemy!
-double getTime()
-{
-	double ret;
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	ret = (tv.tv_sec) + tv.tv_usec*1e-6;
-	return ret;
-}
-
 
 // function prototypes
 
 // manual.cpp
-void initSDL(SDL_Screen *screen, SDL_Joystick *joy);
-bool getButtonPress(int id, bool blocking);
+int initSDL (SDL_Surface *screen, SDL_Joystick *joy);
+bool getButtonPress (int id, bool blocking);
 void updateManualControl (bool *quit, float *speed, float *turning, 
 		float *height);
 
 // actions.cpp
-void performSafeStand(hexapod *hex, serial *ser);
-void sendServoPositions(hexapod *hex, serial *ser);
+bool getLIDARData (float *dist, serial *ser, bool blocking);
+void setLIDARSpin (serial *ser, bool enabled);
+void performSafeStand (hexapod *hex, serial *ser);
+void sendServoPositions (hexapod *hex, serial *ser);
+void disableServos (serial *ser);
+void enableServos (serial *ser);
+
+// monitor.cpp
+double getTime();
+
+

@@ -44,8 +44,8 @@ void listener_loop (serial *ser)
 			ser->send_queue_packets.erase(ser->send_queue_packets.begin());
 			ser->send_queue_confirm.erase(ser->send_queue_confirm.begin());
 			ret = write(ser->fd, buff, size);
-			ser->send_queue_mutex.unlock();
 			if (ptr != NULL) *ptr = true;
+			ser->send_queue_mutex.unlock();
 		}
 
 		// only check input if we've waited a bit
@@ -138,7 +138,7 @@ void serial::init (const char *portname, bool debugflag)
 	}
 	if (tcgetattr(fd, &options) < 0) printf("unable to get serial parms\n");
 	cfmakeraw(&options);
-	if (cfsetspeed(&options, 115200) < 0) printf("error in cfsetspeed\n");
+	if (cfsetspeed(&options, 230400) < 0) printf("error in cfsetspeed\n");
 	if (tcsetattr(fd, TCSANOW, &options) < 0) printf("unable to set baud rate\n");
 	r = ioctl(fd, TIOCGSERIAL, &kernel_serial_settings);
 	if (r >= 0)
@@ -162,7 +162,7 @@ void serial::init_old (const char *portname, bool debugflag)
 		exit(-1);
 	}
 //	set_interface_attribs (B230400, 0);
-	set_interface_attribs (B115200, 0);
+	set_interface_attribs (B230400, 0);
 	set_blocking (0);
 
 	debug = debugflag;
@@ -208,7 +208,7 @@ void serial::send (packet *pack, bool blocking)
 	}
 }
 
-packet* serial::recv (unsigned char tag, bool blocking)
+packet* serial::recv (unsigned char tag, uint8_t tag2, bool blocking)
 {
 	int ii, ind;
 	bool found = false;
@@ -220,7 +220,8 @@ packet* serial::recv (unsigned char tag, bool blocking)
 		// look for oldest packet with matching tag
 		for (ii=0; ii<recv_queue_packets.size(); ii++)
 		{
-			if (recv_queue_packets[ii]->getTag() == tag)
+			if (recv_queue_packets[ii]->getTag() == tag && 
+					recv_queue_packets[ii]->data[0] == tag2)
 			{
 				ind = ii;
 				found = true;
