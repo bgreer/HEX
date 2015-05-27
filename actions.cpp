@@ -29,6 +29,7 @@ scan* getLIDARData (serial *ser, bool blocking)
 	}
 
 	// we have a packet, parse it!
+	/*
 	num = 0;
 	for (ii=0; ii<360; ii++)
 	{
@@ -37,6 +38,8 @@ scan* getLIDARData (serial *ser, bool blocking)
 		// data culling
 		if (fd >= 10.0) num++;
 	}
+	*/
+	num = 360;
 	s = new scan(num);
 	num = 0;
 	for (ii=0; ii<360; ii++)
@@ -44,7 +47,7 @@ scan* getLIDARData (serial *ser, bool blocking)
 		memcpy(&d, &(recv->data[1+ii*2]), sizeof(uint16_t));
 		fd = d*0.1; // turn into cm;
 		// data culling
-		if (fd >= 10.0)
+//		if (fd >= 10.0)
 		{
 			s->angle[num] = ii*PI/180.;
 			s->dist[num] = fd;

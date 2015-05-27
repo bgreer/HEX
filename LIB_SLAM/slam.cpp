@@ -1,9 +1,74 @@
 
 #include "slam.h"
 
+slam::slam ()
+{
+}
+
+void slam::submitScan (scan *s, float x_guess, float y_guess, float ang_guess)
+{
+	slam_mutex.lock();
+	if (currscan != NULL)
+		delete currscan;
+	currscan = s->copy();
+	guessx = x_guess;
+	guessy = y_guess;
+	guessang = ang_guess;
+	slam_mutex.unlock();
+}
+
+// wait for new scans, compute things
+void slam_loop (slam *slammer)
+{
+	float xg, yg, ag;
+	bool newscan;
+	scan *s;
+
+	newscan = false;
+
+	while (slammer->running)
+	{
+		// check for a scan to run
+		slammer->slam_mutex.lock();
+		if (slammer->currscan != NULL)
+		{
+			// grab info
+			xg = slammer->guessx;
+			yg = slammer->guessy;
+			ag = slammer->guessang;
+			s = slammer->currscan->copy();
+			delete slammer->currscan;
+			slammer->currscan = NULL;
+			slammer->computing = true;
+			newscan = true;
+		}
+		slammer->slam_mutex.unlock();
+
+		// we have a local copy of a new scan, run it
+		if (newscan)
+		{
+			cout << "stepping slam.." << endl;
+			slammer->step(s, xg, yg, ag);
+			cout << "done stepping" << endl;
+			newscan = false;
+			slammer->slam_mutex.lock();
+			slammer->computing = false;
+			slammer->slam_mutex.unlock();
+		}
+		
+		usleep(1000);
+	}
+}
+
+void slam::close ()
+{
+	while (computing) usleep(1000);
+	running = false;
+	slam_thread.join();
+}
 
 // init with size in pixels and scale (for comparing to scan)
-slam::slam (int x, int y, float s)
+void slam::init (int x, int y, float s)
 {
 	int ix, iy;
 	float *kernel, r;
@@ -12,8 +77,8 @@ slam::slam (int x, int y, float s)
 	complex<double> val_i(0,1);
 	fftw_plan plan;
 
-	maplock.lock();
-
+	slam_mutex.lock();
+	currscan = NULL;
 	nx = x;
 	ny = y;
 	scale = s;
@@ -71,7 +136,12 @@ slam::slam (int x, int y, float s)
 	memset(map_dx, 0x00, nx*ny*sizeof(float));
 	map_dy = new float [nx*ny];
 	memset(map_dy, 0x00, nx*ny*sizeof(float));
-	maplock.unlock();
+
+	computing = false;
+	running = true;
+	slam_mutex.unlock();
+	slam_thread = thread(slam_loop, this);
+
 }
 
 void slam::setRegularization (float valx, float valy, float vala)
@@ -97,7 +167,7 @@ void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 	}
 
 
-	maplock.lock();
+	slam_mutex.lock();
 	// decay map???
 	for (xpos=0; xpos<nx; xpos++)
 	{
@@ -130,7 +200,7 @@ void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 		if (withinBounds(xpos,ypos,0,nx-1,0,ny-1))
 			map[xpos*ny+ypos] = min(map[xpos*ny+ypos]+s->dist[ii]*0.5/maxdist, 1.0);
 	}
-	maplock.unlock();
+	slam_mutex.unlock();
 }
 
 void slam::filter ()
@@ -155,12 +225,12 @@ void slam::filter ()
 			reinterpret_cast<fftw_complex*>(output), 
 			FFTW_BACKWARD, FFTW_ESTIMATE);
 
-	maplock.lock();
+	slam_mutex.lock();
 	// load map into input
 	for (ix=0; ix<nx; ix++)
 		for (iy=0; iy<ny; iy++)
 			input[ix*ny+iy] = map[ix*ny+iy];
-	maplock.unlock();
+	slam_mutex.unlock();
 	fftw_execute(plan1);
 	// apply filter
 	for (ix=0; ix<nx; ix++)

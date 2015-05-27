@@ -21,7 +21,7 @@ int main(void)
 	data_chunk *d, *d2;
 	logger log;
 	scan *lidar_scan;
-	slam slammer(128,128,7.0);
+	slam slammer;
 	SDL_Surface *screen;
 	SDL_Joystick *joy;
 	double time, lasttime, dt, lastdata, inittime;
@@ -32,6 +32,7 @@ int main(void)
 	unsigned char chk;
 	bool quit;
 
+	slammer.init(128,128,7.0);
 	slammer.setRegularization(0.0,0.0,0.0);
 
 	// begin logging to file
@@ -147,6 +148,7 @@ int main(void)
 
 	// MAIN LOOP
 	quit = false;
+	cout << "Running main loop." << endl;
 	while (!quit)
 	{
 		// increment time
@@ -159,17 +161,20 @@ int main(void)
 		// send updated servo positions to servo controller
 		sendServoPositions(&hex, &ser);
 
-
 		if (getTime() - lastscan > 0.2)
 		{
-			if ((lidar_scan=getLIDARData(&ser, true)) != NULL)
+			if ((lidar_scan=getLIDARData(&ser, false)) != NULL)
 			{
 				if (getTime() - lastslam > 1.0)
-					slammer.step(lidar_scan, 0.0, 0.0, 0.0);
+				{
+					lastslam = getTime();
+					slammer.submitScan(lidar_scan, 0.0, 0.0, 0.0);
+				}
 				delete lidar_scan;
 			}
+			lastscan = getTime();
 		}
-
+		
 		// log hexlib internal tracking
 		d = new data_chunk('P', inittime);
 		d->add(hex.dr_xpos);
@@ -224,6 +229,7 @@ int main(void)
 	cout << "Quitting.." << endl;
 
 	slammer.outputMap("map");
+	slammer.close();
 	// stop the lidar unit
 	setLIDARSpin(&ser, false);
 

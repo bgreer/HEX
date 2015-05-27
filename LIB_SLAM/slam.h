@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <cmath>
 #include <complex>
+#include <thread>
 #include <mutex>
 #include <string.h>
 #include "fftw3.h"
@@ -23,7 +24,11 @@ public:
 	float scale; // cm per pixel
 	float maxdist;
 	float *map, *map_filt, *map_dx, *map_dy; // 2d, let y be fastest dimension
-	mutex maplock; // for other threads accessing the map
+	mutex slam_mutex;
+	thread slam_thread;
+	scan *currscan;
+	float guessx, guessy, guessang;
+	bool running, computing;
 	float currx, curry, currang; // current position
 	float reg_a, reg_b, reg_c; // regularization params
 
@@ -31,12 +36,15 @@ public:
 	complex<double> *filt, *filt_dx, *filt_dy;
 	// filt_dy is
 
-	slam (int x, int y, float s);
+	slam ();
+	void submitScan (scan *s, float x_guess, float y_guess, float ang_guess);
+	void init (int v, int y, float s);
 	void setRegularization (float valx, float valy, float vala);
 	void integrate (scan *s, float x_val, float y_val, float ang_val);
 	void filter ();
 	bool step (scan *s, float x_guess, float y_guess, float ang_guess);
 	void outputMap (char *fname);
+	void close ();
 
 	~slam ()
 	{
@@ -51,4 +59,5 @@ public:
 	}
 };
 
+void slam_loop (slam *slammer);
 bool withinBounds (int x, int y, int x0, int x1, int y0, int y1);
