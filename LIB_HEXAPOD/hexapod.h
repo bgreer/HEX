@@ -1,5 +1,8 @@
+#ifndef HEXAPOD_H
+#define HEXAPOD_H
 #include <iostream>
 #include <math.h>
+#include <mutex>
 #include "bezier2d.h"
 #ifndef PI
 #define PI 3.14159265
@@ -70,6 +73,7 @@ public:
 	float turning, smoothturning;
 	float standheight;
 	float sweepmodifier, speedmodifier, maxsweep;
+	mutex hexlock;
 
 	// for safestand
 	float sstime;
@@ -96,3 +100,4 @@ public:
 	void sit ();
 
 };
+#endif

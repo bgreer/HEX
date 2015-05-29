@@ -1,0 +1,21 @@
+
+setup:
+	target coordinates and radii
+
+inputs:
+	current position and angle
+	current avoidance map
+
+outputs:
+	turning radius
+	walking speed
+
+
+interface:
+	init();
+	addTarget();
+	solve();
+
+
+
+solver must compute optimal path to next target, then decide how to follow that path

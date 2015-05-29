@@ -1,3 +1,5 @@
+#ifndef SCAN_H
+#define SCAN_H
 #include <string.h>
 #include <stdlib.h>
 
@@ -32,3 +34,4 @@ public:
 		free(weight);
 	}
 };
+#endif

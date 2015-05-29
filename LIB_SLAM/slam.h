@@ -1,3 +1,5 @@
+#ifndef SLAM_H
+#define SLAM_H
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
@@ -62,3 +64,4 @@ public:
 
 void slam_loop (slam *slammer);
 bool withinBounds (int x, int y, int x0, int x1, int y0, int y1);
+#endif
