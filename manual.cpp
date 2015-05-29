@@ -1,7 +1,7 @@
 #include "header.h"
 
 // manual control
-
+#ifdef MANUAL
 int initSDL (SDL_Surface *screen, SDL_Joystick *joy)
 {
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0)
@@ -89,3 +89,4 @@ bool getButtonPress (int id, bool blocking)
 	}
 
 }
+#endif

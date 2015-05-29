@@ -64,7 +64,7 @@ logger::logger ()
 }
 
 
-void logger::init (char *filename, bool textflag)
+void logger::init (const char *filename, bool textflag)
 {
 
 	file.open(filename);

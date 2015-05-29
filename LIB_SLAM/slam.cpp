@@ -367,7 +367,7 @@ bool slam::step (scan *s, float x_guess, float y_guess, float ang_guess)
 	}
 }
 
-void slam::outputMap (char *fname)
+void slam::outputMap (const char *fname)
 {
 	int ii, ij, ix, iy;
 	ofstream file;

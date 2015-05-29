@@ -1,11 +1,10 @@
 [ Ordered by approximate priority ]
 
+test speed of hwmgr, try to speed up code to prevent crashes
 let logger find unique filename for log file
-let slam algorithm run in separate thread, submit scans for integration, wait for result
 create hardware button-board
 create script to monitor button-board, toggle code, wifi, etc
 add button-board monitoring to HWMGR
 develop path-to-command math
-test SLAM on real LIDAR scans
 work on bezier js app
 create profiling library? add to cpu codes

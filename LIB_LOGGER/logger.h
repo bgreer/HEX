@@ -88,7 +88,7 @@ public:
 	mutex queue_mutex;
 
 	logger();
-	void init(char *filename, bool plaintext = false);
+	void init(const char *filename, bool plaintext = false);
 	void close();
 	bool send(data_chunk *d); // logger loop is responsible for freeing memory from chunk
 };

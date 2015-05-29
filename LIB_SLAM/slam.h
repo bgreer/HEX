@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
+#include <unistd.h>
 #include <cmath>
 #include <complex>
 #include <thread>
@@ -43,7 +44,7 @@ public:
 	void integrate (scan *s, float x_val, float y_val, float ang_val);
 	void filter ();
 	bool step (scan *s, float x_guess, float y_guess, float ang_guess);
-	void outputMap (char *fname);
+	void outputMap (const char *fname);
 	void close ();
 
 	~slam ()

@@ -22,8 +22,10 @@ int main(int argc, char *argv[])
 	logger log;
 	scan *lidar_scan;
 	slam slammer;
+#ifdef MANUAL
 	SDL_Surface *screen;
 	SDL_Joystick *joy;
+#endif
 	double time, lasttime, dt, lastdata, inittime;
 	double lastslam, lastscan;
 	uint8_t errcode;
@@ -47,16 +49,21 @@ int main(int argc, char *argv[])
 	inittime = getTime();
 
 	// set up sdl for joystick usage
+#ifdef MANUAL
 	if (initSDL(screen, joy) != 0) return -1;
+#endif
 
 	// set up serial connection to Due
 	// this launches a new thread for serial listening
 	ser.init_old("/dev/ttymxc3", false);
 
 	// wait for user to press Start
+#ifdef MANUAL
 	cout << "Press Start to connect." << endl;
 	getButtonPress(7, true); // blocking wait for Start button, manual.cpp
-
+#else
+	// wait for init button
+#endif
 	
 	// before continuing, ask scontroller for servo data
 	// mostly to make sure it's ready to do stuff
@@ -232,11 +239,13 @@ int main(int argc, char *argv[])
 		}*/
 		
 		// look for joystick commands
+#ifdef MANUAL
 		updateManualControl(&quit, &(hex.speed), &(hex.turning),
 				&(hex.standheight));
+#endif
 
 		// main loop delay
-		SDL_Delay(20);
+		usleep(20000);
 	}
 
 	cout << "Quitting.." << endl;
