@@ -10,7 +10,7 @@ using namespace std;
 
 #define SIZE 128
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	int ii, ij, ik, ix, iy, size, ind;
 	int cx, cy, attempts, scans;
@@ -28,12 +28,18 @@ int main(void)
 	double lastslam, lastscan;
 	uint8_t errcode;
 	float pos, avgtemp, joyval, maxval;
-	float scan_dist[360];
+	float prevx, prevy, preva; // for slam guessi
+	float dx, dy, da;
 	unsigned char chk;
 	bool quit;
 
-	slammer.init(128,128,7.0);
-	slammer.setRegularization(0.0,0.0,0.0);
+	prevx = 0.0;
+	prevy = 0.0;
+	preva = 0.0;
+
+	cout << "Initializing SLAM.." << endl;
+	slammer.init(192,192,10.0);
+	slammer.setRegularization(atof(argv[1]),atof(argv[1]),atof(argv[2]));
 
 	// begin logging to file
 	// this launches a new thread for async logging
@@ -165,10 +171,17 @@ int main(void)
 		{
 			if ((lidar_scan=getLIDARData(&ser, false)) != NULL)
 			{
-				if (getTime() - lastslam > 1.0)
+				if (getTime() - lastslam > 0.5)
 				{
 					lastslam = getTime();
-					slammer.submitScan(lidar_scan, 0.0, 0.0, 0.0);
+					dx = hex.dr_xpos - prevx;
+					dy = hex.dr_ypos - prevy;
+					da = hex.dr_ang - preva;
+					prevx = hex.dr_xpos;
+					prevy = hex.dr_ypos;
+					preva = hex.dr_ang;
+					slammer.submitScan(lidar_scan, 
+							slammer.currx+dx, slammer.curry+dy, slammer.currang+da);
 				}
 				delete lidar_scan;
 			}

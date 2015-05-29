@@ -275,7 +275,7 @@ void checkLidar ()
   byte in;
   
 	num = 0;
-  while (Serial2.available() && num < 1024)
+  while (Serial2.available() && num < 512)
   {
     in = Serial2.read();
 		num++;
@@ -302,6 +302,6 @@ void loop ()
 	checkSerial(&ser0); // check comms with i.mx6
 	checkSerial(&ser1); // check comms with arbotix-m
 	checkLidar(); // check comms with lidar unit
-	delay(LOOP_DELAY);
+//	delay(LOOP_DELAY);
 
 }

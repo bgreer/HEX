@@ -168,6 +168,14 @@ void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 
 
 	slam_mutex.lock();
+	for (ii=0; ii<s->num; ii++)
+	{
+		xpos = (int)((s->dist[ii]*cos(s->angle[ii]+ang_val)+x_val)/scale + nx/2);
+		ypos = (int)((s->dist[ii]*sin(s->angle[ii]+ang_val)+y_val)/scale + ny/2);
+		if (withinBounds(xpos,ypos,0,nx-1,0,ny-1))
+			map[xpos*ny+ypos] = 1.0;
+	}
+
 	// decay map???
 	for (xpos=0; xpos<nx; xpos++)
 	{
@@ -188,18 +196,11 @@ void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 				}
 			}
 			if (dist < s->dist[ind])
-				map[xpos*ny+ypos] *= 0.90;
+				map[xpos*ny+ypos] *= 0.90 + 0.1*dist/s->dist[ind];
 		}
 	}
 
 
-	for (ii=0; ii<s->num; ii++)
-	{
-		xpos = (int)((s->dist[ii]*cos(s->angle[ii]+ang_val)+x_val)/scale + nx/2);
-		ypos = (int)((s->dist[ii]*sin(s->angle[ii]+ang_val)+y_val)/scale + ny/2);
-		if (withinBounds(xpos,ypos,0,nx-1,0,ny-1))
-			map[xpos*ny+ypos] = min(map[xpos*ny+ypos]+s->dist[ii]*0.5/maxdist, 1.0);
-	}
 	slam_mutex.unlock();
 }
 
