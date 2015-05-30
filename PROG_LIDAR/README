@@ -1,5 +1,0 @@
-
-Main program running on an Arduino that handles LIDAR input.
-Creates packets of full scans and sends them along.
-Monitors speed and adjusts motor power.
-Reads IMU and corrects angle of servos.
