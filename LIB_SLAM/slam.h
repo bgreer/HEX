@@ -37,6 +37,8 @@ public:
 
 	// filters
 	complex<double> *filt, *filt_dx, *filt_dy;
+	fftw_plan filter_plan1, filter_plan2;
+	complex<double> *filter_ftmap, *filter_input, *filter_output;
 	// filt_dy is
 
 	slam ();
@@ -51,6 +53,11 @@ public:
 
 	~slam ()
 	{
+		fftw_destroy_plan(filter_plan1);
+		fftw_destroy_plan(filter_plan2);
+		delete [] filter_input;
+		delete [] filter_output;
+		delete [] filter_ftmap;
 		delete [] filt;
 		delete [] filt_dx;
 		delete [] filt_dy;

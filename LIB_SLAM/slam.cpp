@@ -77,6 +77,8 @@ void slam::init (int x, int y, float s)
 	complex<double> val_i(0,1);
 	fftw_plan plan;
 
+	fftw_init_threads();
+
 	slam_mutex.lock();
 	currscan = NULL;
 	nx = x;
@@ -89,6 +91,7 @@ void slam::init (int x, int y, float s)
 	
 	input = new complex<double> [nx*ny];
 	output = new complex<double> [nx*ny];
+	fftw_plan_with_nthreads(3);
 	plan = fftw_plan_dft_2d(nx, ny, 
 			reinterpret_cast<fftw_complex*>(input), 
 			reinterpret_cast<fftw_complex*>(output), 
@@ -136,6 +139,19 @@ void slam::init (int x, int y, float s)
 	memset(map_dx, 0x00, nx*ny*sizeof(float));
 	map_dy = new float [nx*ny];
 	memset(map_dy, 0x00, nx*ny*sizeof(float));
+	filter_input = new complex<double> [nx*ny];
+	filter_output = new complex<double> [nx*ny];
+	filter_ftmap = new complex<double> [nx*ny];
+	fftw_plan_with_nthreads(3);
+	filter_plan1 = fftw_plan_dft_2d(nx, ny, 
+			reinterpret_cast<fftw_complex*>(filter_input), 
+			reinterpret_cast<fftw_complex*>(filter_ftmap), 
+			FFTW_FORWARD, FFTW_ESTIMATE);
+	filter_plan2 = fftw_plan_dft_2d(nx, ny, 
+			reinterpret_cast<fftw_complex*>(filter_input), 
+			reinterpret_cast<fftw_complex*>(filter_output), 
+			FFTW_BACKWARD, FFTW_ESTIMATE);
+
 
 	computing = false;
 	running = true;
@@ -156,7 +172,7 @@ void slam::setRegularization (float valx, float valy, float vala)
 // useful for robot getting bearings before slam stepping
 void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 {
-	int ii, xpos, ypos, ind;
+	int ii, xpos, ypos, ind, x0, x1, y0, y1;
 	float tht, diff, dist, ang;
 
 	// error checking
@@ -177,9 +193,13 @@ void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 	}
 
 	// decay map???
-	for (xpos=0; xpos<nx; xpos++)
+	x0 = 0;
+	x1 = nx;
+	y0 = 0;
+	y1 = ny;
+	for (xpos=x0; xpos<x1; xpos++)
 	{
-		for (ypos=0; ypos<ny; ypos++)
+		for (ypos=x0; ypos<y1; ypos++)
 		{
 			tht = atan2(ypos-ny/2-curry/scale, xpos-nx/2-currx/scale);
 			dist = sqrt(pow((ypos-ny/2)*scale-curry,2)+pow((xpos-nx/2)*scale-currx,2));
@@ -207,64 +227,49 @@ void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 void slam::filter ()
 {
 	int ix, iy;
-	complex<double> *ftmap, *input, *output;
 	double n2;
-	fftw_plan plan1, plan2;
 
 	n2 = (double)nx*ny;
 	
 	// filter map in fourier space
-	input = new complex<double> [nx*ny];
-	output = new complex<double> [nx*ny];
-	ftmap = new complex<double> [nx*ny];
-	plan1 = fftw_plan_dft_2d(nx, ny, 
-			reinterpret_cast<fftw_complex*>(input), 
-			reinterpret_cast<fftw_complex*>(ftmap), 
-			FFTW_FORWARD, FFTW_ESTIMATE);
-	plan2 = fftw_plan_dft_2d(nx, ny, 
-			reinterpret_cast<fftw_complex*>(input), 
-			reinterpret_cast<fftw_complex*>(output), 
-			FFTW_BACKWARD, FFTW_ESTIMATE);
 
 	slam_mutex.lock();
 	// load map into input
 	for (ix=0; ix<nx; ix++)
 		for (iy=0; iy<ny; iy++)
-			input[ix*ny+iy] = map[ix*ny+iy];
+			filter_input[ix*ny+iy] = map[ix*ny+iy];
 	slam_mutex.unlock();
-	fftw_execute(plan1);
+	fftw_execute(filter_plan1);
+	
 	// apply filter
 	for (ix=0; ix<nx; ix++)
 		for (iy=0; iy<ny; iy++)
-			input[ix*ny+iy] = ftmap[ix*ny+iy] * filt[ix*ny+iy];
-	fftw_execute(plan2);
+			filter_input[ix*ny+iy] = filter_ftmap[ix*ny+iy] * filt[ix*ny+iy];
+	fftw_execute(filter_plan2);
 	// unload into map_filt, shifted
 	for (ix=0; ix<nx; ix++)
 		for (iy=0; iy<ny; iy++)
-			map_filt[ix*ny+iy] = -real(output[((ix+nx/2) % nx)*ny+((iy+ny/2) % ny)])/n2;
+			map_filt[ix*ny+iy] = -real(filter_output[((ix+nx/2) % nx)*ny+((iy+ny/2) % ny)])/n2;
+	
 	// apply filt-dx
 	for (ix=0; ix<nx; ix++)
 		for (iy=0; iy<ny; iy++)
-			input[ix*ny+iy] = ftmap[ix*ny+iy] * filt_dx[ix*ny+iy];
-	fftw_execute(plan2);
+			filter_input[ix*ny+iy] = filter_ftmap[ix*ny+iy] * filt_dx[ix*ny+iy];
+	fftw_execute(filter_plan2);
 	// unload into map_dx, shifted
 	for (ix=0; ix<nx; ix++)
 		for (iy=0; iy<ny; iy++)
-			map_dx[ix*ny+iy] = -real(output[((ix+nx/2) % nx)*ny+((iy+ny/2) % ny)])/n2;
+			map_dx[ix*ny+iy] = -real(filter_output[((ix+nx/2) % nx)*ny+((iy+ny/2) % ny)])/n2;
+	
 	// apply fil-dy
 	for (ix=0; ix<nx; ix++)
 		for (iy=0; iy<ny; iy++)
-			input[ix*ny+iy] = ftmap[ix*ny+iy] * filt_dy[ix*ny+iy];
-	fftw_execute(plan2);
+			filter_input[ix*ny+iy] = filter_ftmap[ix*ny+iy] * filt_dy[ix*ny+iy];
+	fftw_execute(filter_plan2);
 	// unload into map_dy, shifted
 	for (ix=0; ix<nx; ix++)
 		for (iy=0; iy<ny; iy++)
-			map_dy[ix*ny+iy] = -real(output[((ix+nx/2) % nx)*ny+((iy+ny/2) % ny)])/n2;
-	fftw_destroy_plan(plan1);
-	fftw_destroy_plan(plan2);
-	delete [] input;
-	delete [] output;
-	delete [] ftmap;
+			map_dy[ix*ny+iy] = -real(filter_output[((ix+nx/2) % nx)*ny+((iy+ny/2) % ny)])/n2;
 }
 
 // given a scan and estimate of position, perform SLAM step

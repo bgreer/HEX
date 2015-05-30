@@ -41,7 +41,8 @@ int main(int argc, char *argv[])
 	preva = 0.0;
 
 	cout << "Initializing SLAM.." << endl;
-	slammer.init(192,192,10.0);
+	// need 10,000 cm for race
+	slammer.init(512,512,10.0);
 	slammer.setRegularization(atof(argv[1]),atof(argv[1]),atof(argv[2]));
 
 	// begin logging to file
@@ -138,7 +139,7 @@ int main(int argc, char *argv[])
 	{
 		if ((lidar_scan=getLIDARData(&ser, true)) != NULL)
 		{
-			slammer.integrate(lidar_scan, 0.0, 0.0, 0.0);
+			if (scans % 9 == 0) slammer.integrate(lidar_scan, 0.0, 0.0, 0.0);
 			delete lidar_scan;
 			scans ++;
 		}
@@ -181,7 +182,7 @@ int main(int argc, char *argv[])
 			usleep(1000);
 			if ((lidar_scan=getLIDARData(&ser, true)) != NULL)
 			{
-				if (getTime() - lastslam > 0.5)
+				if (getTime() - lastslam > 1.5)
 				{
 					lastslam = getTime();
 					dx = hex.dr_xpos - prevx;

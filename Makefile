@@ -13,7 +13,7 @@ SLAM = $(SLAMDIR)/slam.cpp $(SLAMDIR)/slam.h $(SLAMDIR)/scan.h
 LOGGER = $(LOGGERDIR)/logger.cpp $(LOGGERDIR)/logger.h
 SDL = -I/usr/local/include/SDL -L/usr/local/lib -lSDL
 
-LIBS = $(SDL) -D_GNU_SOURCE=1 -D_REENTRANT -pthread -lpthread -lrt -ldl -lfftw3 -lm
+LIBS = $(SDL) -D_GNU_SOURCE=1 -D_REENTRANT -pthread -lpthread -lrt -ldl -lfftw3_threads -lfftw3 -lm
 
 # this needs to be cleaned up
 hex : main.cpp manual.cpp actions.cpp monitor.cpp $(SERIAL) $(PACKET) $(HEXAPOD) $(LOGGER) $(SLAM)
