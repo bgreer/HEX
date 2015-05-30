@@ -1,6 +1,6 @@
 
 // are we compiling with manual control?
-//#define MANUAL
+#define MANUAL
 
 #include "/home/bgreer/PROJECTS/HEX/LIB_SLAM/slam.h"
 #include "/home/bgreer/PROJECTS/HEX/LIB_SERIAL/serial.h"

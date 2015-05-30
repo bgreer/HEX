@@ -27,13 +27,14 @@ int main(int argc, char *argv[])
 	SDL_Joystick *joy;
 #endif
 	double time, lasttime, dt, lastdata, inittime;
-	double lastslam, lastscan;
+	double lastslam, lastscan, lastloop;
 	uint8_t errcode;
 	float pos, avgtemp, joyval, maxval;
 	float prevx, prevy, preva; // for slam guessi
 	float dx, dy, da;
 	unsigned char chk;
 	bool quit;
+	uint32_t delaytime;
 
 	prevx = 0.0;
 	prevy = 0.0;
@@ -133,7 +134,7 @@ int main(int argc, char *argv[])
 	// get lidar data, integrate slam map
 	cout << "Obtaining initial LIDAR map.." << endl;
 	scans = 0;
-	while (scans < 20)
+	while (scans < 360)
 	{
 		if ((lidar_scan=getLIDARData(&ser, true)) != NULL)
 		{
@@ -141,7 +142,7 @@ int main(int argc, char *argv[])
 			delete lidar_scan;
 			scans ++;
 		}
-		usleep(1000*100);
+		usleep(1000*10);
 	}
 	lastscan = getTime();
 	lastslam = getTime();
@@ -162,6 +163,7 @@ int main(int argc, char *argv[])
 	// MAIN LOOP
 	quit = false;
 	cout << "Running main loop." << endl;
+	lastloop = getTime();
 	while (!quit)
 	{
 		// increment time
@@ -174,9 +176,10 @@ int main(int argc, char *argv[])
 		// send updated servo positions to servo controller
 		sendServoPositions(&hex, &ser);
 
-		if (getTime() - lastscan > 0.2)
+		if (getTime() - lastscan > 0.02)
 		{
-			if ((lidar_scan=getLIDARData(&ser, false)) != NULL)
+			usleep(1000);
+			if ((lidar_scan=getLIDARData(&ser, true)) != NULL)
 			{
 				if (getTime() - lastslam > 0.5)
 				{
@@ -245,7 +248,9 @@ int main(int argc, char *argv[])
 #endif
 
 		// main loop delay
-		usleep(20000);
+		delaytime = (uint32_t)min(20000.,20000.-(getTime()-lastloop)*1000.*1000.);
+		usleep(delaytime);
+		lastloop = getTime();
 	}
 
 	cout << "Quitting.." << endl;

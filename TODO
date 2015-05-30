@@ -1,6 +1,5 @@
 [ Ordered by approximate priority ]
 
-test speed of hwmgr, try to speed up code to prevent crashes
 let logger find unique filename for log file
 create hardware button-board
 create script to monitor button-board, toggle code, wifi, etc

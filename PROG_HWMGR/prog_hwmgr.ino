@@ -14,6 +14,8 @@
 #define PID_I 0.1
 #define PID_D 0.1
 
+#define PIN_DEBUG1 24
+
 // TARGET: UDOO Arduin Due
 
 // for PID motor controller
@@ -28,7 +30,8 @@ float lidar_strength[360];
 uint32_t lastpidupdate;
 bool lidar_spinning;
 packet *pack_lidar;
-unsigned char pack_lidar_prebuff[1024];
+unsigned char pack_lidar_prebuff[256];
+uint8_t lidar_index;
 
 // define a helping class
 class ser_construct
@@ -114,9 +117,16 @@ void parsePacket (packet *pack)
 				break;
 			case 0x02: // request lidar data
 				pack_lidar->data[0] = 0x02; // lidar distance data
-				memcpy(&(pack_lidar->data[1]), lidar_dist, 360*sizeof(uint16_t));
-				memset(lidar_dist,0x00,360*sizeof(uint16_t)); // clear after taken
+				pack_lidar->data[1] = (unsigned char) lidar_index;
+				for (ii=0; ii<40; ii++)
+				{
+					memcpy(&(pack_lidar->data[2+ii*sizeof(uint16_t)]), 
+							&(lidar_dist[ii*9+lidar_index]), sizeof(uint16_t));
+					lidar_dist[ii*9+lidar_index] = 0;
+				}
 				Serial.write(pack_lidar->buffer, *(pack_lidar->p_packet_size));
+				lidar_index ++;
+				if (lidar_index == 9) lidar_index = 0;
 				break;
 		}		
 	} else if (pack->getTag() == 'U') { // send to udoo
@@ -174,6 +184,7 @@ void lidar_parsePacket()
 
 void setup ()
 {
+	pinMode(PIN_DEBUG1, OUTPUT);
 	pinMode(MOTOR_PIN, OUTPUT);
 	analogWrite(MOTOR_PIN, 0);
 	Serial.begin(230400); // connection to i.MX6 processor
@@ -190,13 +201,14 @@ void setup ()
 
 	// setup done, ready to act
 	memset(lidar_dist,0x00,360*sizeof(uint16_t));
-	pack_lidar = new packet(360*2+2, 'U', 0, pack_lidar_prebuff);
+	pack_lidar = new packet(40*2+2, 'U', 0, pack_lidar_prebuff);
 	lidar_packet_index = 0;
 	interror = 0.0;
 	currspeed = 0.0;
 	targetspeed = 320.0; // in units of 64th of an rpm (so 5 rpm)
 	lastpidupdate = millis();
 	lidar_spinning = false;
+	lidar_index = 0;
 	delay(150);
 }
 
@@ -298,7 +310,6 @@ void checkLidar ()
 
 void loop ()
 {
-
 	checkSerial(&ser0); // check comms with i.mx6
 	checkSerial(&ser1); // check comms with arbotix-m
 	checkLidar(); // check comms with lidar unit

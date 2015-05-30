@@ -3,6 +3,7 @@
 scan* getLIDARData (serial *ser, bool blocking)
 {
 	uint16_t d, ii;
+	uint8_t lidar_index;
 	float fd;
 	int num;
 	scan *s;
@@ -30,23 +31,24 @@ scan* getLIDARData (serial *ser, bool blocking)
 
 	// we have a packet, parse it!
 	num = 0;
-	for (ii=0; ii<360; ii++)
+	lidar_index = recv->data[1];
+	for (ii=0; ii<40; ii++)
 	{
-		memcpy(&d, &(recv->data[1+ii*2]), sizeof(uint16_t));
+		memcpy(&d, &(recv->data[2+ii*2]), sizeof(uint16_t));
 		fd = d*0.1; // turn into cm;
 		// data culling
 		if (fd >= 10.0) num++;
 	}
 	s = new scan(num);
 	num = 0;
-	for (ii=0; ii<360; ii++)
+	for (ii=0; ii<40; ii++)
 	{
-		memcpy(&d, &(recv->data[1+ii*2]), sizeof(uint16_t));
+		memcpy(&d, &(recv->data[2+ii*2]), sizeof(uint16_t));
 		fd = d*0.1; // turn into cm;
 		// data culling
 		if (fd >= 10.0)
 		{
-			s->angle[num] = ii*PI/180.;
+			s->angle[num] = (ii*9+lidar_index)*PI/180.;
 			s->dist[num] = fd;
 			s->weight[num] = 1.0;
 			num++;
