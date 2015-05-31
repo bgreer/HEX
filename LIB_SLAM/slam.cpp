@@ -77,7 +77,9 @@ void slam::init (int x, int y, float s)
 	complex<double> val_i(0,1);
 	fftw_plan plan;
 
+#ifdef SLAM_THREADS
 	fftw_init_threads();
+#endif
 
 	slam_mutex.lock();
 	currscan = NULL;
@@ -91,7 +93,9 @@ void slam::init (int x, int y, float s)
 	
 	input = new complex<double> [nx*ny];
 	output = new complex<double> [nx*ny];
+#ifdef SLAM_THREADS
 	fftw_plan_with_nthreads(3);
+#endif
 	plan = fftw_plan_dft_2d(nx, ny, 
 			reinterpret_cast<fftw_complex*>(input), 
 			reinterpret_cast<fftw_complex*>(output), 
@@ -142,7 +146,6 @@ void slam::init (int x, int y, float s)
 	filter_input = new complex<double> [nx*ny];
 	filter_output = new complex<double> [nx*ny];
 	filter_ftmap = new complex<double> [nx*ny];
-	fftw_plan_with_nthreads(3);
 	filter_plan1 = fftw_plan_dft_2d(nx, ny, 
 			reinterpret_cast<fftw_complex*>(filter_input), 
 			reinterpret_cast<fftw_complex*>(filter_ftmap), 

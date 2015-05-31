@@ -10,18 +10,23 @@ double getTime()
 
 void autonav_loop (autonav *an)
 {
+	int ii, ind, dx, dy;
 	float cx, cy, ca; // current position
 	float ctx, cty, ctr; // current target
 	float close_x, close_y;
-	float heading, dang;
+	float heading, dang, scale, newscore, minf;
 	float *localmap;
-	int mapnx, mapny;
-	bool t;
+	int nx, ny, x0, y0, xt, yt, finalindex;
+	an_node *thisnode, *newnode;
+	vector<an_node*> openset, closedset, path;
+	uint16_t thisx, thisy, newx, newy;
+	bool t, pathfound, inclosed, inopen;
 	t = false;
 
-	mapnx = an->slammer->nx;
-	mapny = an->slammer->ny;
-	localmap = new float [mapnx*mapny];
+	nx = an->slammer->nx;
+	ny = an->slammer->ny;
+	localmap = new float [nx*ny];
+	scale = an->slammer->scale;
 
 	while (an->running)
 	{
@@ -37,6 +42,7 @@ void autonav_loop (autonav *an)
 		an->anlock.unlock();
 		if (t)
 		{
+			t = false;
 			// we have been told to do stuff
 			// grab position and target from autonav
 			an->anlock.lock();
@@ -51,15 +57,108 @@ void autonav_loop (autonav *an)
 			
 			// make a local copy of the current map
 			an->slammer->slam_mutex.lock();
-			memcpy(localmap, an->slammer->map, mapnx*mapny*sizeof(float));
+			memcpy(localmap, an->slammer->map, nx*ny*sizeof(float));
 			an->slammer->slam_mutex.unlock();
 			
 			// solve for optimal path
-			// ...
+			x0 = nx/2 + cx/scale;
+			y0 = ny/2 + cy/scale;
+			xt = nx/2 + ctx/scale;
+			yt = ny/2 + cty/scale;
+			finalindex = -1;
+			openset.push_back(new an_node(x0, y0));
+			openset[openset.size()-1]->f_score = localmap[x0*ny+y0]*scale*MAP_WEIGHT + 
+				sqrt(pow(x0-xt,2)+pow(y0-yt,2));
+			pathfound = false;
+			while (openset.size() > 0 && !pathfound)
+			{
+				// start with node in openset with lowest f_score
+				minf = 1e9;
+				for (ii=0; ii<openset.size(); ii++)
+				{
+					if (openset[ii]->f_score < minf)
+					{
+						minf = openset[ii]->f_score;
+						ind = ii;
+					}
+				}
+				thisx = openset[ind]->xpos;
+				thisy = openset[ind]->ypos;
+				// check for target
+				if (thisx == xt && thisy == yt)
+				{
+					pathfound = true;
+					finalindex = ind;
+				}
+				if (!pathfound)
+				{
+					// move node to closed set
+					thisnode = openset[ind];
+					openset.erase(openset.begin()+ind);
+					closedset.push_back(thisnode);
+					// loop through neighbors
+					for (dx=-1; dx<=1; dx++)
+					{
+						for (dy=-1; dy<=1; dy++)
+						{
+							newx = thisx+dx;
+							newy = thisy+dy;
+							// check bounds
+							if (newy>=0 && newy<ny && newx>=0 && newx<nx)
+							{
+								// look for in closed set
+								inopen = false;
+								inclosed = false;
+								for (ii=0; ii<closedset.size(); ii++)
+									if (closedset[ii]->xpos == newx && 
+											closedset[ii]->ypos == newy)
+										inclosed = true;
+								for (ii=0; ii<openset.size(); ii++)
+									if (openset[ii]->xpos == newx && 
+											openset[ii]->ypos == newy)
+										inopen = true;
+								if (!inclosed && !inopen)
+								{
+									newscore = thisnode->g_score + sqrt(dx*dx+dy*dy);
+									newnode = new an_node(newx, newy);
+									newnode->g_score = newscore;
+									newnode->pathtracer = thisnode;
+									newnode->f_score = newscore + 
+										localmap[newx*ny+newy]*scale*MAP_WEIGHT + 
+										sqrt(pow(newx-xt,2)+pow(newy-yt,2));
+									openset.push_back(newnode);
+								}
+							}
+						}
+					}
+				}
+			}
+			// reconstruct optimal path
+			// and pick local target to aim at
+			thisnode = openset[finalindex];
+			path.push_back(thisnode);
+			close_x = (thisnode->xpos-nx/2)*scale;
+			close_y = (thisnode->ypos-ny/2)*scale;
+			while (thisnode->xpos != x0 || thisnode->ypos != y0)
+			{
+				thisnode = thisnode->pathtracer;
+				path.push_back(thisnode);
+				if (sqrt(pow(thisnode->xpos-x0,2)+pow(thisnode->ypos-y0,2))*scale
+						> AN_MIN_TARGET_DIST)
+				{
+					close_x = (thisnode->xpos-nx/2)*scale;
+					close_y = (thisnode->ypos-ny/2)*scale;
+				}
+			}
 			
-			// pick local target to aim at
-			close_x = ctx;
-			close_y = cty;
+			// clear sets
+			for (ii=0; ii<openset.size(); ii++)
+				delete openset[ii];
+			openset.erase(openset.begin(), openset.end());
+			for (ii=0; ii<closedset.size(); ii++)
+				delete closedset[ii];
+			closedset.erase(closedset.begin(), closedset.end());
+			path.erase(path.begin(), path.end());
 			
 			// set hexapod speed and turning
 			heading = atan2(close_y-cy, close_x-cx);
@@ -86,6 +185,7 @@ autonav::autonav ()
 {
 	//
 }
+
 
 void autonav::init (hexapod *hex0, slam *slammer0, float x, float y, float a)
 {

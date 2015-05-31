@@ -11,6 +11,26 @@
 // in seconds
 #define AUTONAV_TARGET_MINTIME 0.001
 
+// how much to weight the map, usually > 100
+#define MAP_WEIGHT 100.0
+
+// in cm
+#define AN_MIN_TARGET_DIST 20.0
+
+class an_node
+{
+public:
+	float f_score = 0;
+	float g_score = 0;
+	an_node *pathtracer;
+	uint16_t xpos, ypos;
+
+	an_node (uint16_t x, uint16_t y, float f_score = 0.0, float g_score = 0.0)
+	{
+		xpos = x;
+		ypos = y;
+	}
+};
 
 class autonav
 {

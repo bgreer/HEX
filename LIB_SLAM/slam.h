@@ -12,6 +12,7 @@
 #include "fftw3.h"
 #include "scan.h"
 
+
 using namespace std;
 
 #ifndef PI
@@ -19,6 +20,8 @@ using namespace std;
 #endif
 #define SLAM_MAXITER 1000
 #define STEPTOL 1e-4
+
+//#define SLAM_THREADS
 
 class slam
 {

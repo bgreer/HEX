@@ -22,7 +22,7 @@ int main(void)
 
 	inittime = getTime();
 	
-	slammer.init(128,128,10.0);
+	slammer.init(128,128,5.0);
 
 	nav.init(&hex, &slammer, 0,0,0);
 	nav.addTarget(100.0, 0.0, 10.0);
@@ -46,6 +46,7 @@ int main(void)
 
 		cout << hex.dr_xpos << "\t" << hex.dr_ypos << "\t" << hex.turning << endl;
 		nav.solve(hex.dr_xpos, hex.dr_ypos, hex.dr_ang);
+
 
 		// check for end of target list
 		nav.anlock.lock();
