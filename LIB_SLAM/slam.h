@@ -21,7 +21,7 @@ using namespace std;
 #define SLAM_MAXITER 1000
 #define STEPTOL 1e-4
 
-//#define SLAM_THREADS
+#define SLAM_THREADS
 
 class slam
 {

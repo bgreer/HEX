@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
 	int ii, ij, ik, ix, iy, size, ind;
 	int cx, cy, attempts, scans;
 	// so many custom classes!
+	autonav nav;
 	serial ser;
 	packet *pack, *pack2, *pack_ask, *pack_data;
 	hexapod hex;
@@ -27,7 +28,7 @@ int main(int argc, char *argv[])
 	SDL_Joystick *joy;
 #endif
 	double time, lasttime, dt, lastdata, inittime;
-	double lastslam, lastscan, lastloop;
+	double lastslam, lastscan, lastloop, lastnav;
 	uint8_t errcode;
 	float pos, avgtemp, joyval, maxval;
 	float prevx, prevy, preva; // for slam guessi
@@ -42,8 +43,10 @@ int main(int argc, char *argv[])
 
 	cout << "Initializing SLAM.." << endl;
 	// need 10,000 cm for race
-	slammer.init(512,512,10.0);
-	slammer.setRegularization(atof(argv[1]),atof(argv[1]),atof(argv[2]));
+	slammer.init(128,128,5.0);
+	slammer.setRegularization(0.3,0.3,1.0);
+	nav.init(&hex, &slammer, 0,0,0);
+	nav.addTarget(100.0, 0.0, 10.0);
 
 	// begin logging to file
 	// this launches a new thread for async logging
@@ -119,6 +122,7 @@ int main(int argc, char *argv[])
 	// max useable speed is 2.0 -> 1 foot per second
 	hex.speed = 0.0; // in cycles per second
 	hex.turning = 0.0; // [-1,1], rotation in z-axis
+	hex.standheight = -2.0;
 
 	enableServos(&ser);
 
@@ -139,14 +143,16 @@ int main(int argc, char *argv[])
 	{
 		if ((lidar_scan=getLIDARData(&ser, true)) != NULL)
 		{
-			if (scans % 9 == 0) slammer.integrate(lidar_scan, 0.0, 0.0, 0.0);
+			slammer.integrate(lidar_scan, 0.0, 0.0, 0.0);
 			delete lidar_scan;
 			scans ++;
+			cout << scans << endl;
 		}
 		usleep(1000*10);
 	}
 	lastscan = getTime();
 	lastslam = getTime();
+	lastnav = getTime();
 
 	// get ready to ask for data
 	pack_ask = new packet(16, 'A');
@@ -198,6 +204,13 @@ int main(int argc, char *argv[])
 			}
 			lastscan = getTime();
 		}
+
+		if (getTime() - lastnav > 0.2)
+		{
+			// use autonav to set hexapod speed and turning
+			nav.solve(slammer.currx, slammer.curry, slammer.currang);
+			lastnav = getTime();
+		}
 		
 		// log hexlib internal tracking
 		d = new data_chunk('P', inittime);
@@ -248,6 +261,11 @@ int main(int argc, char *argv[])
 				&(hex.standheight));
 #endif
 
+		// check for end of target list
+		nav.anlock.lock();
+		if (nav.currtarget == nav.target_x.size()) hex.speed = 0.0;
+		nav.anlock.unlock();
+
 		// main loop delay
 		delaytime = (uint32_t)min(20000.,20000.-(getTime()-lastloop)*1000.*1000.);
 		usleep(delaytime);
@@ -258,6 +276,7 @@ int main(int argc, char *argv[])
 
 	slammer.outputMap("map");
 	slammer.close();
+	nav.close();
 	// stop the lidar unit
 	setLIDARSpin(&ser, false);
 

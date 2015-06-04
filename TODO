@@ -1,6 +1,7 @@
 [ Ordered by approximate priority ]
 
 add a* to autonav, using slam map
+let autonav load waypoints from file
 let logger find unique filename for log file
 create hardware button-board
 create script to monitor button-board, toggle code, wifi, etc

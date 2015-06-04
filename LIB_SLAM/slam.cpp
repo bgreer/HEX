@@ -86,6 +86,9 @@ void slam::init (int x, int y, float s)
 	nx = x;
 	ny = y;
 	scale = s;
+	currx = 0;
+	curry = 0;
+	currang = 0;
 	maxdist = sqrt(nx*nx*0.25 + ny*ny*0.25)*scale;
 	reg_a = 0.1;
 	reg_b = 0.1;
@@ -192,7 +195,9 @@ void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 		xpos = (int)((s->dist[ii]*cos(s->angle[ii]+ang_val)+x_val)/scale + nx/2);
 		ypos = (int)((s->dist[ii]*sin(s->angle[ii]+ang_val)+y_val)/scale + ny/2);
 		if (withinBounds(xpos,ypos,0,nx-1,0,ny-1))
+		{
 			map[xpos*ny+ypos] = 1.0;
+		}
 	}
 
 	// decay map???
@@ -250,9 +255,11 @@ void slam::filter ()
 			filter_input[ix*ny+iy] = filter_ftmap[ix*ny+iy] * filt[ix*ny+iy];
 	fftw_execute(filter_plan2);
 	// unload into map_filt, shifted
+	slam_mutex.lock();
 	for (ix=0; ix<nx; ix++)
 		for (iy=0; iy<ny; iy++)
 			map_filt[ix*ny+iy] = -real(filter_output[((ix+nx/2) % nx)*ny+((iy+ny/2) % ny)])/n2;
+	slam_mutex.unlock();
 	
 	// apply filt-dx
 	for (ix=0; ix<nx; ix++)

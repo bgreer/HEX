@@ -1,12 +1,4 @@
 #include "autonav.h"
-double getTime()
-{
-	double ret;
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	ret = (tv.tv_sec) + tv.tv_usec*1e-6;
-	return ret;
-}
 
 void autonav_loop (autonav *an)
 {
@@ -17,6 +9,7 @@ void autonav_loop (autonav *an)
 	float heading, dang, scale, newscore, minf;
 	float *localmap;
 	int nx, ny, x0, y0, xt, yt, finalindex;
+	long steps;
 	an_node *thisnode, *newnode;
 	vector<an_node*> openset, closedset, path;
 	uint16_t thisx, thisy, newx, newy;
@@ -57,7 +50,7 @@ void autonav_loop (autonav *an)
 			
 			// make a local copy of the current map
 			an->slammer->slam_mutex.lock();
-			memcpy(localmap, an->slammer->map, nx*ny*sizeof(float));
+			memcpy(localmap, an->slammer->map_filt, nx*ny*sizeof(float));
 			an->slammer->slam_mutex.unlock();
 			
 			// solve for optimal path
@@ -67,11 +60,13 @@ void autonav_loop (autonav *an)
 			yt = ny/2 + cty/scale;
 			finalindex = -1;
 			openset.push_back(new an_node(x0, y0));
-			openset[openset.size()-1]->f_score = localmap[x0*ny+y0]*scale*MAP_WEIGHT + 
+			openset[openset.size()-1]->f_score = -localmap[x0*ny+y0]*scale*MAP_WEIGHT + 
 				sqrt(pow(x0-xt,2)+pow(y0-yt,2));
 			pathfound = false;
+			steps = 0;
 			while (openset.size() > 0 && !pathfound)
 			{
+				steps ++;
 				// start with node in openset with lowest f_score
 				minf = 1e9;
 				for (ii=0; ii<openset.size(); ii++)
@@ -124,7 +119,7 @@ void autonav_loop (autonav *an)
 									newnode->g_score = newscore;
 									newnode->pathtracer = thisnode;
 									newnode->f_score = newscore + 
-										localmap[newx*ny+newy]*scale*MAP_WEIGHT + 
+										-localmap[newx*ny+newy]*scale*MAP_WEIGHT + 
 										sqrt(pow(newx-xt,2)+pow(newy-yt,2));
 									openset.push_back(newnode);
 								}
@@ -133,6 +128,7 @@ void autonav_loop (autonav *an)
 					}
 				}
 			}
+			cout << "reconstructing path after "<<steps<<" steps" << endl;
 			// reconstruct optimal path
 			// and pick local target to aim at
 			thisnode = openset[finalindex];
@@ -167,11 +163,12 @@ void autonav_loop (autonav *an)
 			if (dang > PI) dang -= 2.*PI;
 
 			an->hex->hexlock.lock();
-			an->hex->speed = 1.0;
+			an->hex->speed = 0.3;
 			if (fabs(dang) > 0.05)
 				an->hex->turning = 5.*dang/PI;
 			else
 				an->hex->turning = 0.0;
+			cout << "set hex vals" << endl;
 			an->hex->hexlock.unlock();
 		} else {
 			usleep(10000);
@@ -229,6 +226,7 @@ void autonav::solve (float currx, float curry, float currang)
 			currtarget_time += dt;
 		} else {
 			currtarget_time = 0.0;
+			cout << "reached target!" << endl;
 			currtarget++;
 		}
 	}

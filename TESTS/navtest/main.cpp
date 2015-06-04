@@ -45,6 +45,7 @@ int main(void)
 		hex.step(dt);
 
 		cout << hex.dr_xpos << "\t" << hex.dr_ypos << "\t" << hex.turning << endl;
+		// autonav will set the hexapod speed and turning values
 		nav.solve(hex.dr_xpos, hex.dr_ypos, hex.dr_ang);
 
 
