@@ -12,10 +12,10 @@
 // in seconds
 #define AUTONAV_TARGET_MINTIME 0.001
 
-// exponent for distance. use 0.5 for sqrt
+// exponent for distance. use 0.5 for sqrt, 0.505 for eager
 #define DIST_POW 0.505
 
-// how much to weight the map, usually > 100
+// how much to weight the map
 #define MAP_WEIGHT 1.0
 
 // in cm

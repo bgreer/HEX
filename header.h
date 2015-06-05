@@ -1,6 +1,8 @@
 
 // are we compiling with manual control?
 #define MANUAL
+// print to stdout as well
+#define DEBUG 1
 
 #include "/home/bgreer/PROJECTS/HEX/LIB_AUTONAV/autonav.h"
 #include "/home/bgreer/PROJECTS/HEX/LIB_SLAM/slam.h"
@@ -25,6 +27,7 @@ void updateManualControl (bool *quit, float *speed, float *turning,
 #endif
 
 // actions.cpp
+bool confirmArbotixConnection (serial *ser, hexapod &hex);
 scan* getLIDARData (serial *ser, bool blocking);
 void setLIDARSpin (serial *ser, bool enabled);
 void performSafeStand (hexapod *hex, serial *ser);

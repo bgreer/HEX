@@ -6,7 +6,7 @@ int initSDL (SDL_Surface *screen, SDL_Joystick *joy)
 {
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0)
 	{
-		cout << "ERROR in SDL init: " << SDL_GetError() << endl;
+		if (DEBUG) cout << "ERROR in SDL init: " << SDL_GetError() << endl;
 		return -1;
 	}
 	atexit(SDL_Quit);
@@ -19,13 +19,13 @@ int initSDL (SDL_Surface *screen, SDL_Joystick *joy)
 		joy=SDL_JoystickOpen(0);
 		if (joy)
 		{
-			cout << "Joystick Connected." << endl;
+			if (DEBUG) cout << "Joystick Connected." << endl;
 		} else {
-			cout << "ERROR: could not connect to joystick!" << endl;
+			if (DEBUG) cout << "ERROR: could not connect to joystick!" << endl;
 			return -1;
 		}
 	} else {
-		cout << "ERROR: could not find joystick!" << endl;
+		if (DEBUG) cout << "ERROR: could not find joystick!" << endl;
 		return -1;
 	}
 	return 0;

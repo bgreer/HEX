@@ -19,6 +19,9 @@
 // angle to move things away from bounds by, in radians
 #define ANGEPS 0.01
 
+// in turning value per second
+#define TURN_SLEW 1.0
+
 using namespace std;
 
 /* servo IDs:

@@ -7,7 +7,7 @@ void hexapod::step (float dt)
 	float cycletime, xpos, ypos, zpos, target[3];
 	float legraise;
 	float turn_dist, thtpos, rpos, maxdist;
-	float dist, tht0;
+	float dist, tht0, turn_step;
 
 	// clamp speed and turning, just in case
 	hexlock.lock();
@@ -20,7 +20,11 @@ void hexapod::step (float dt)
 	
 	// make sure speed doesnt change too rapidly
 	smoothspeed = 0.95*smoothspeed + 0.05*speed;
-	smoothturning = 0.90*smoothturning + 0.10*turning;
+	// cap the rate at which turning can change
+	turn_step = (smoothturning - turning);
+	if (turn_step > TURN_SLEW*dt) turn_step = TURN_SLEW*dt;
+	if (turn_step < -TURN_SLEW*dt) turn_step = -TURN_SLEW*dt;
+	smoothturning += turn_step;
 	hexlock.unlock();
 
 	// to control walking, modify speed and turning
@@ -148,16 +152,12 @@ void hexapod::step (float dt)
 		else b2d_walk_up.getPos((cycletime-fdf)/(1.-fdf), &thtpos, &zpos);
 		// convert thtpos into angle?
 		thtpos *= maxsweep;
-//		if (turn_dist < 0.0) thtpos = -thtpos;
-		//cout << ii << " " << time << " " << thtpos << endl;
 
 		// convert rpos to xpos,ypos
 		dist = sqrt(pow(legpos1[ii][0],2) + pow(legpos1[ii][1]-turn_dist,2));
 		tht0 = atan2(legpos1[ii][1]-turn_dist,legpos1[ii][0]);
 		xpos = dist*cos(thtpos+tht0);
 		ypos = turn_dist + dist*sin(thtpos+tht0);
-
-	//	cout << ii << " " << xpos << " " << ypos << " " << tht0 << endl;
 
 		// set up the IK target
 		target[0] = xpos;
@@ -275,7 +275,7 @@ hexapod::hexapod(bool debugflag)
 	hexlock.lock();
 	speed = 0.0;
 	turning = 0.0;
-	standheight = 0.0;
+	standheight = 2.0;
 	hexlock.unlock();
 	smoothspeed = 0.0;
 	time = 0.0;
@@ -324,8 +324,6 @@ bool hexapod::IKSolve (int leg, float *target)
 	targetr = sqrt(pow(target[0]-legpos[leg][0],2) + pow(target[1]-legpos[leg][1],2));
 	targetang = atan2(target[1]-legpos[leg][1],target[0]-legpos[leg][0]) - legang[leg]; // atan2 [-pi:pi]
 
-	//cout << "test " << legang[leg] << " " << target[0]-legpos[leg][0] << " " << target[1]-legpos[leg][1] << endl;
-	//cout << "coxa: " << angle[leg*3] << " -> " << targetang << endl;
 	// easy part: can the coxa servo get to the right angle?
 	if (targetang > angleub[0] || targetang < anglelb[0]) return false;
 	// else, go ahead and set coxa servo. One out of three angles done!
@@ -342,10 +340,7 @@ bool hexapod::IKSolve (int leg, float *target)
 	posz = fkpos[2] - legpos[leg][2];
 	posr = sqrt(pow(fkpos[0]-legpos[leg][0],2) + pow(fkpos[1]-legpos[leg][1],2));
 
-	//cout << "init " << fkangles[1] << " " << fkangles[2] << " " << posr << " " << posz << endl;
-	//cout << "target: " << targetr << " " << targetz << endl;
 	diff = sqrt(pow(targetr-posr,2) + pow(targetz-posz,2));
-	//cout << "initdiff: " << diff << endl;
 	// ITERATE
 	converged = false;
 	for (iter=0; iter<MAXITER && !converged; iter++)
@@ -365,11 +360,8 @@ bool hexapod::IKSolve (int leg, float *target)
 		inv[1][0] = -J[1][0]*det;
 		inv[0][1] = -J[0][1]*det;
 		inv[1][1] = J[0][0]*det;
-		//cout << "J: " << J[0][0] << " " << J[0][1] << " " << J[1][0] << " " << J[1][1] << endl;
-		//cout << "inv: " << inv[0][0] << " " << inv[0][1] << " " << inv[1][0] << " " << inv[1][1] << endl;
 		delta[0] = p[0]*inv[0][0] + p[1]*inv[0][1];
 		delta[1] = p[0]*inv[1][0] + p[1]*inv[1][1];
-		//cout << "delta: " << delta[0] << " " << delta[1] << " p: " << p[0] << " " << p[1] << endl;
 		fkangles[1] += delta[0]*0.5;
 		fkangles[2] += delta[1]*0.5;
 		// enforce bounds

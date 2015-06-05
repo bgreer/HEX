@@ -1,5 +1,45 @@
 #include "header.h"
 
+// the Arbotix-M might be off or initializing, so keep sending the request
+// until you hear something back
+bool confirmArbotixConnection (serial *ser, hexapod &hex)
+{
+	int attempts;
+	packet *pack, *pack_recv;
+
+	pack = new packet(16, 'A');
+	pack->data[0] = 0x05;
+	pack->data[1] = 0x01;
+	pack->data[2] = 'U';
+	ser->send(pack, true);
+	usleep(500*1000);
+
+	pack2 = NULL;
+	attempts = 0;
+	while ((pack2 = ser.recv('U', 0x01, false)) == NULL && attempts < 10)
+	{
+		attempts ++;
+		ser->send(pack, true);
+		sleep(1);
+	}
+	delete pack;
+
+	if (attempts==10) return false;
+
+	// let the hex library know where the actual servos are right now
+	for (ii=0; ii<18; ii++)
+	{
+		memcpy(&pos, pack2->data+1+ii*(sizeof(float)+sizeof(uint8_t)), 
+				sizeof(float));
+		hex->servoangle[ii] = pos;
+	}
+	hex->setAngles();
+	delete pack2;
+
+
+	return true;
+}
+
 scan* getLIDARData (serial *ser, bool blocking)
 {
 	uint16_t d, ii;
@@ -149,6 +189,63 @@ void performSafeStand (hexapod *hex, serial *ser)
 		ser->send(pack, true);
 		usleep(20*1000);
 	}
+
+	delete pack;
+}
+
+
+void performRaceFinish (hexapod *hex, serial *ser)
+{
+	int ii;
+	float pos;
+	double lasttime, dt, inittime;
+	packet *pack;
+
+	pack = new packet(96, 'A');
+	pack->data[0] = 0x01; // set servo positions
+	
+	inittime = getTime();
+	lasttime = inittime;
+	// first 2 seconds, slow down
+	hex->speed = 0.0;
+	hex->turning = 0.0;
+	while (getTime() - inittime < 2.0)
+	{
+		dt = (getTime() - lasttime);
+		lasttime = getTime();
+		hex->step(dt);
+		// send positions
+		for (ii=0; ii<18; ii++)
+		{
+			pos = hex->servoangle[ii];
+			memcpy(pack->data+1+ii*sizeof(float), 
+					&pos, sizeof(float));
+		}
+		ser->send(pack, true);
+		usleep(20*1000);
+	}
+
+	inittime = getTime();
+	lasttime = inittime;
+	// do a little dance!
+	while (getTime()-inittime < 4.0)
+	{
+		dt = (getTime() - lasttime);
+		lasttime = getTime();
+		// oscillate once per second
+		hex->standheight = 2.0*cos((lasttime - inittime)*PI);
+		hex->step(dt);
+		// package positions
+		for (ii=0; ii<18; ii++)
+		{
+			pos = hex->servoangle[ii];
+			memcpy(pack->data+1+ii*sizeof(float), 
+					&pos, sizeof(float));
+		}
+		ser->send(pack, true);
+		usleep(20*1000);
+	}
+	usleep(100*1000);
 
 	delete pack;
 }

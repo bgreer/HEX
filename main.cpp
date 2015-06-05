@@ -8,8 +8,6 @@
 
 using namespace std;
 
-#define SIZE 128
-
 int main(int argc, char *argv[])
 {
 	int ii, ij, ik, ix, iy, size, ind;
@@ -17,7 +15,6 @@ int main(int argc, char *argv[])
 	// so many custom classes!
 	autonav nav;
 	serial ser;
-	packet *pack, *pack2, *pack_ask, *pack_data;
 	hexapod hex;
 	data_chunk *d, *d2;
 	logger log;
@@ -27,7 +24,7 @@ int main(int argc, char *argv[])
 	SDL_Surface *screen;
 	SDL_Joystick *joy;
 #endif
-	double time, lasttime, dt, lastdata, inittime;
+	double time, lasttime, dt, lastdata;
 	double lastslam, lastscan, lastloop, lastnav;
 	uint8_t errcode;
 	float pos, avgtemp, joyval, maxval;
@@ -41,136 +38,97 @@ int main(int argc, char *argv[])
 	prevy = 0.0;
 	preva = 0.0;
 
-	cout << "Initializing SLAM.." << endl;
-	// need 10,000 cm for race
+	// STEP 1: initialize classes
+	if (DEBUG) cout << "Initializing..." << endl;
+	log.init("logfile", true); // log file
 	slammer.init(128,128,5.0);
 	slammer.setRegularization(0.3,0.3,1.0);
 	nav.init(&hex, &slammer, &log, 0,0,0);
-	nav.addTarget(100.0, 0.0, 10.0);
-
-	// begin logging to file
-	// this launches a new thread for async logging
-	log.init("logfile", true);
-	inittime = getTime();
-
-	// set up sdl for joystick usage
+	ser.init_old("/dev/ttymxc3", false); // serial comm with Due
 #ifdef MANUAL
 	if (initSDL(screen, joy) != 0) return -1;
 #endif
 
-	// set up serial connection to Due
-	// this launches a new thread for serial listening
-	ser.init_old("/dev/ttymxc3", false);
 
-	// wait for user to press Start
+	// STEP 2: load waypoints for autonav
+	nav.addTarget(100.0, 0.0, 10.0);
+
+
+	// STEP 3: confirm connection with arbotix-m
+	if (DEBUG) cout << "Confirming Connection.." << endl;
+	if (!(confirmArbotixConnection(&ser, &hex)))
+	{
+		if (DEBUG) cout << "ERROR: could not connect to servo controller!" << endl;
+		d = new data_chunk('E');
+		d->add(1);
+		log.send(d);
+		return -1;
+	}
+	if (DEBUG) cout << "System Ready." << endl;
+
+
+	// wait for user input before moving on
 #ifdef MANUAL
-	cout << "Press Start to connect." << endl;
+	if (DEBUG) cout << "Press Start to continue." << endl;
 	getButtonPress(7, true); // blocking wait for Start button, manual.cpp
 #else
 	// wait for init button
 #endif
-	
-	// before continuing, ask scontroller for servo data
-	// mostly to make sure it's ready to do stuff
-	cout << "Confirming Connection.." << endl;
-	// step 1: create a packet destined for the arbotix-m
-	pack = new packet(16, 'A'); // reasonable size?
-	// step 2: set command byte to 0x05, request for data
-	pack->data[0] = 0x05;
-	// step 3: set request byte to 0x01, requesting servo angles
-	pack->data[1] = 0x01;
-	// step 4: set return byte to 'D', send back to Due
-	pack->data[2] = 'U';
-	// step 5: send the packet
-	ser.send(pack, true);
-	sleep(1);
-	
-	// the Arbotix-M might be off or initializing, so keep sending the request
-	// until you hear something back
-	pack2 = NULL;
-	attempts = 0;
-	while ((pack2 = ser.recv('U', 0x01, false)) == NULL && attempts < 10)
-	{
-		attempts ++;
-		ser.send(pack, true);
-		sleep(1);
-	}
-	delete pack;
-	if (attempts == 10)
-	{
-		cout << "ERROR: could not connect to servo controller!" << endl;
-		return -1;
-	}
-	
-	// we received data from the Arbotix-M, it's good to continue
-	cout << "System Ready." << endl;
-	// let the hex library know where the actual servos are right now
-	for (ii=0; ii<18; ii++)
-	{
-		memcpy(&pos, pack2->data+1+ii*(sizeof(float)+sizeof(uint8_t)), 
-				sizeof(float));
-		hex.servoangle[ii] = pos;
-	}
-	hex.setAngles();
-	delete pack2;
 
-	
-	// sit / stand
-	pack = new packet(100, 'A');
-	pack->data[0] = 0x01; // set servo positions
-
-	// max useable speed is 2.0 -> 1 foot per second
-	hex.speed = 0.0; // in cycles per second
-	hex.turning = 0.0; // [-1,1], rotation in z-axis
-	hex.standheight = 2.0;
-
-	enableServos(&ser);
-
-	// start up lidar unit
-	usleep(50*1000);
-	setLIDARSpin(&ser, true);
-
-	// servos are enabled, try to stand up safely
-	cout << "Performing Safe Stand.." << endl;
+	// STEP 4: enable hardware
+	enableServos(&ser); // tell servos to turn on
+	usleep(50*1000); // don't send stuff too quickly..
+	setLIDARSpin(&ser, true); // lidar motor spin up
+	// stand up safely while LIDAR gets up to speed
+	if (DEBUG) cout << "Performing Safe Stand.." << endl;
 	performSafeStand(&hex, &ser);
+	usleep(1000*1000*3); // wait more for LIDAR
 
-	// wait a while for lidar to get up to speed
-	usleep(1000*1000*3);
-	// get lidar data, integrate slam map
-	cout << "Obtaining initial LIDAR map.." << endl;
+	// wait for user input before using lidar scans
+#ifdef MANUAL
+	if (DEBUG) cout << "Press Start to continue." << endl;
+	getButtonPress(7, true); // blocking wait for Start button, manual.cpp
+#else
+	// wait for init button
+#endif
+
+	// STEP 5: get initial LIDAR scan of surroundings
+	// needs a few scans, but allow for user to keep scanning after that
+	if (DEBUG) cout << "Obtaining initial LIDAR map.." << endl;
+	if (DEBUG) cout << "Press Start to finish scanning." << endl;
 	scans = 0;
-	while (scans < 360)
+	quit = false;
+	while (scans < 360 && !quit)
 	{
 		if ((lidar_scan=getLIDARData(&ser, true)) != NULL)
 		{
 			slammer.integrate(lidar_scan, 0.0, 0.0, 0.0);
 			delete lidar_scan;
 			scans ++;
-			cout << scans << endl;
 		}
+#ifdef MANUAL
+		quit = getButtonPress(7, false);
+#else
+		// check status of button
+#endif
 		usleep(1000*10);
 	}
-	slammer.filter(); // force
+	slammer.filter(); // force filtering so autonav has something to work with
+	// set up timing data
 	lastscan = getTime();
 	lastslam = getTime();
 	lastnav = getTime();
-
-	// get ready to ask for data
-	pack_ask = new packet(16, 'A');
-	pack_ask->data[0] = 0x05;
-	pack_ask->data[1] = 0x03; // want temperature
-	pack_ask->data[2] = 'U';
-	pack_data = NULL;
-
-
-	// set up timing data
 	time = 0.0;
 	lasttime = getTime();
 	lastdata = lasttime;
 
+
+	// Now we are ready to move around!
+	
+
 	// MAIN LOOP
 	quit = false;
-	cout << "Running main loop." << endl;
+	if (DEBUG) cout << "Running main loop." << endl;
 	lastloop = getTime();
 	while (!quit)
 	{
@@ -184,6 +142,7 @@ int main(int argc, char *argv[])
 		// send updated servo positions to servo controller
 		sendServoPositions(&hex, &ser);
 
+		// get LIDAR scan and update SLAM
 		if (getTime() - lastscan > 0.02)
 		{
 			usleep(1000);
@@ -206,12 +165,6 @@ int main(int argc, char *argv[])
 			lastscan = getTime();
 		}
 
-		if (getTime() - lastnav > 0.2)
-		{
-			// use autonav to set hexapod speed and turning
-			nav.solve(slammer.currx, slammer.curry, slammer.currang);
-			lastnav = getTime();
-		}
 		
 		// log hexlib internal tracking
 		d = new data_chunk('P');
@@ -226,70 +179,46 @@ int main(int argc, char *argv[])
 		d2->add(slammer.currang);
 		log.send(d2);
 
-		// ask for data from servos
-		/*
-		if (getTime() - lastdata > 1.0)
-		{
-		if ((pack2=ser.recv('U',0x03,false)) != NULL)
-		{
-			maxval = 1e-10;
-			avgtemp = 0.0;
-			for (ii=0; ii<18; ii++)
-			{
-				memcpy(&pos, pack2->data+1+ii*(sizeof(float)+sizeof(uint8_t)), 
-						sizeof(float));
-				memcpy(&errcode, pack2->data+1+ii*(sizeof(float)+sizeof(uint8_t))+sizeof(float), sizeof(uint8_t));
-				avgtemp += pos;
-				if (pos > maxval) maxval = pos;
-				if (errcode != 0) // 32=overload, 4=temperature, 1=voltage
-					cout << "SERVO ERROR: "<< (int)(errcode) << " ON SERVO " << ii << endl;
-			}
-			avgtemp /= 18.;
-			d = new data_chunk('T', inittime);
-			d->add(avgtemp);
-			log.send(d);
-			delete pack2;
-			lastdata = getTime();
-			pack2 = NULL;
-			ser.send(pack_ask);
-			usleep(20*1000);
-		}
-		}*/
-		
-		// look for joystick commands
+		// main navigation commands:
 #ifdef MANUAL
+		// look for remote control commands
 		updateManualControl(&quit, &(hex.speed), &(hex.turning),
 				&(hex.standheight));
-#endif
-
+#else
+		// use autonav to decide motion
+		if (getTime() - lastnav > 0.2)
+		{
+			// use autonav to set hexapod speed and turning
+			nav.solve(slammer.currx, slammer.curry, slammer.currang);
+			lastnav = getTime();
+		}
 		// check for end of target list
 		nav.anlock.lock();
-		if (nav.currtarget == nav.target_x.size()) hex.speed = 0.0;
+		if (nav.currtarget == nav.target_x.size())
+		{
+			performRaceFinish(&hex, &ser);
+			quit = true;
+		}
 		nav.anlock.unlock();
+#endif
+
 
 		// main loop delay
+		// try to keep update rate at 1/20ms as best as possible
 		delaytime = (uint32_t)min(20000.,20000.-(getTime()-lastloop)*1000.*1000.);
 		usleep(delaytime);
 		lastloop = getTime();
 	}
 
-	cout << "Quitting.." << endl;
-
-	slammer.outputMap("map");
+	// begin clean shutdown
+	if (DEBUG) cout << "Quitting.." << endl;
+	slammer.outputMap("map"); // save slam map to file
 	slammer.close();
 	nav.close();
-	// stop the lidar unit
-	setLIDARSpin(&ser, false);
-
-	// tell the servos to relax
-	disableServos(&ser);
-	delete pack;
-
-	// close serial port
-	ser.close();
-	
-	// stop logging, close file
-	log.close();
+	setLIDARSpin(&ser, false); // tell Due to stop the LIDAR motor
+	disableServos(&ser); // set servos to disabled (no torque)
+	ser.close(); // close serial port
+	log.close(); // finish logging, close log file
 
 
 }
