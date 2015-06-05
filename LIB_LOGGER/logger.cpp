@@ -3,12 +3,12 @@
 void logger_loop (logger *log)
 {
 	int ii, numwritten;
-	double lasttime, currtime;
+	double lasttime, currtime, data_time;
 	struct timeval tv;
 	data_chunk *p;
 
 	gettimeofday(&tv, NULL);
-	currtime = (tv.tv_sec-1431710000) + tv.tv_usec*1e-6;
+	currtime = (tv.tv_sec) + tv.tv_usec*1e-6;
 	lasttime = currtime;
 
 	while (log->listening)
@@ -30,17 +30,18 @@ void logger_loop (logger *log)
 		{
 			// grab the pointer from the queue
 			p = log->parcel[log->queue_start];
+			data_time = p->time - log->inittime;;
 			// write chunk
 			if (log->plaintext)
 			{
 				// use ascii text
-				log->file << p->time << "\t" << p->tag << "\t" << p->num;
+				log->file << data_time << "\t" << p->tag << "\t" << p->num;
 				for (ii=0; ii<p->num; ii++)
 					log->file << "\t" << p->data[ii];
 				log->file << endl;
 			} else {
 				// use binary
-				log->file.write(reinterpret_cast<char*>(&(p->time)), sizeof(double));
+				log->file.write(reinterpret_cast<char*>(&(data_time)), sizeof(double));
 				log->file.write(reinterpret_cast<char*>(&(p->tag)), sizeof(unsigned char));
 				log->file.write(reinterpret_cast<char*>(&(p->num)), sizeof(int));
 				log->file.write(reinterpret_cast<char*>(p->data), sizeof(float)*p->num);
@@ -66,7 +67,9 @@ logger::logger ()
 
 void logger::init (const char *filename, bool textflag)
 {
-
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	inittime = (tv.tv_sec) + tv.tv_usec*1e-6;
 	file.open(filename);
 	plaintext = textflag;
 	queue_start = 0;

@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
 	// need 10,000 cm for race
 	slammer.init(128,128,5.0);
 	slammer.setRegularization(0.3,0.3,1.0);
-	nav.init(&hex, &slammer, 0,0,0);
+	nav.init(&hex, &slammer, &log, 0,0,0);
 	nav.addTarget(100.0, 0.0, 10.0);
 
 	// begin logging to file
@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
 	// max useable speed is 2.0 -> 1 foot per second
 	hex.speed = 0.0; // in cycles per second
 	hex.turning = 0.0; // [-1,1], rotation in z-axis
-	hex.standheight = -2.0;
+	hex.standheight = 2.0;
 
 	enableServos(&ser);
 
@@ -150,6 +150,7 @@ int main(int argc, char *argv[])
 		}
 		usleep(1000*10);
 	}
+	slammer.filter(); // force
 	lastscan = getTime();
 	lastslam = getTime();
 	lastnav = getTime();
@@ -213,13 +214,13 @@ int main(int argc, char *argv[])
 		}
 		
 		// log hexlib internal tracking
-		d = new data_chunk('P', inittime);
+		d = new data_chunk('P');
 		d->add(hex.dr_xpos);
 		d->add(hex.dr_ypos);
 		d->add(hex.dr_ang);
 		log.send(d);
 		// log slam tracking
-		d2 = new data_chunk('S', inittime);
+		d2 = new data_chunk('S');
 		d2->add(slammer.currx);
 		d2->add(slammer.curry);
 		d2->add(slammer.currang);

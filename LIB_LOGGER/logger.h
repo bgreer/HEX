@@ -24,18 +24,17 @@ class data_chunk
 {
 public:
 	unsigned char tag;
-	double time, inittime;
+	double time;
 	int num; // how many floats of data we have loaded
 	int space; // how much space we have allocated
 	float *data;
 	
-	data_chunk (unsigned char t, double time0 = 0.0)
+	data_chunk (unsigned char t)
 	{
 		num = 0;
 		space = 1;
 		data = new float [space];
 		tag = t;
-		inittime = time0;
 		updateTime();
 	}
 
@@ -62,7 +61,7 @@ public:
 	{
 		struct timeval tv;
 		gettimeofday(&tv, NULL);
-		time = (tv.tv_sec) + tv.tv_usec*1e-6 - inittime;
+		time = (tv.tv_sec) + tv.tv_usec*1e-6;
 	}
 
 	~data_chunk ()
@@ -86,6 +85,7 @@ public:
 	int queue_start, queue_end, queue_num;
 	data_chunk *parcel[QUEUE_SIZE];
 	mutex queue_mutex;
+	double inittime;
 
 	logger();
 	void init(const char *filename, bool plaintext = false);

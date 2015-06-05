@@ -1,4 +1,4 @@
-#include "autonav.h"
+#include "/home/bgreer/PROJECTS/HEX/LIB_AUTONAV/autonav.h"
 
 void autonav_loop (autonav *an)
 {
@@ -8,12 +8,13 @@ void autonav_loop (autonav *an)
 	float close_x, close_y;
 	float heading, dang, scale, newscore, minf;
 	float *localmap;
-	int nx, ny, x0, y0, xt, yt, finalindex;
+	int nx, ny, x0, y0, xt, yt;
 	long steps;
 	an_node *thisnode, *newnode;
 	vector<an_node*> openset, closedset, path;
 	uint16_t thisx, thisy, newx, newy;
 	bool t, pathfound, inclosed, inopen;
+	data_chunk *d;
 	t = false;
 
 	nx = an->slammer->nx;
@@ -58,13 +59,12 @@ void autonav_loop (autonav *an)
 			y0 = ny/2 + cy/scale;
 			xt = nx/2 + ctx/scale;
 			yt = ny/2 + cty/scale;
-			finalindex = -1;
 			openset.push_back(new an_node(x0, y0));
 			openset[openset.size()-1]->f_score = -localmap[x0*ny+y0]*scale*MAP_WEIGHT + 
-				sqrt(pow(x0-xt,2)+pow(y0-yt,2));
+				pow(pow(x0-xt,2)+pow(y0-yt,2),DIST_POW);
 			pathfound = false;
 			steps = 0;
-			while (openset.size() > 0 && !pathfound)
+			while (openset.size() > 0 && !pathfound && steps < 2000)
 			{
 				steps ++;
 				// start with node in openset with lowest f_score
@@ -83,7 +83,6 @@ void autonav_loop (autonav *an)
 				if (thisx == xt && thisy == yt)
 				{
 					pathfound = true;
-					finalindex = ind;
 				}
 				if (!pathfound)
 				{
@@ -114,7 +113,7 @@ void autonav_loop (autonav *an)
 										inopen = true;
 								if (!inclosed && !inopen)
 								{
-									newscore = thisnode->g_score + sqrt(dx*dx+dy*dy);
+									newscore = thisnode->g_score + pow(dx*dx+dy*dy,DIST_POW);
 									newnode = new an_node(newx, newy);
 									newnode->g_score = newscore;
 									newnode->pathtracer = thisnode;
@@ -131,13 +130,19 @@ void autonav_loop (autonav *an)
 			cout << "reconstructing path after "<<steps<<" steps" << endl;
 			// reconstruct optimal path
 			// and pick local target to aim at
-			thisnode = openset[finalindex];
+			thisnode = openset[ind];
 			path.push_back(thisnode);
 			close_x = (thisnode->xpos-nx/2)*scale;
 			close_y = (thisnode->ypos-ny/2)*scale;
 			while (thisnode->xpos != x0 || thisnode->ypos != y0)
 			{
 				thisnode = thisnode->pathtracer;
+				d = new data_chunk('A');
+				d->add(thisnode->xpos);
+				d->add(thisnode->ypos);
+				d->add(thisnode->f_score);
+				d->add(thisnode->g_score);
+				an->log->send(d);
 				path.push_back(thisnode);
 				if (sqrt(pow(thisnode->xpos-x0,2)+pow(thisnode->ypos-y0,2))*scale
 						> AN_MIN_TARGET_DIST)
@@ -184,7 +189,8 @@ autonav::autonav ()
 }
 
 
-void autonav::init (hexapod *hex0, slam *slammer0, float x, float y, float a)
+void autonav::init (hexapod *hex0, slam *slammer0, logger *log0, 
+		float x, float y, float a)
 {
 	cx = x;
 	cy = y;
@@ -195,6 +201,7 @@ void autonav::init (hexapod *hex0, slam *slammer0, float x, float y, float a)
 	// link to various other classes
 	slammer = slammer0;
 	hex = hex0;
+	log = log0;
 	// run listening thread
 	computing = false;
 	triggered = false;

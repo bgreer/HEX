@@ -2,6 +2,7 @@
 #define AUTONAV_H
 #include "/home/bgreer/PROJECTS/HEX/LIB_HEXAPOD/hexapod.h"
 #include "/home/bgreer/PROJECTS/HEX/LIB_SLAM/slam.h"
+#include "/home/bgreer/PROJECTS/HEX/LIB_LOGGER/logger.h"
 #include <sys/time.h>
 #include <vector>
 #include <mutex>
@@ -10,6 +11,9 @@
 // minimum time needed to spend near target before moving to next one
 // in seconds
 #define AUTONAV_TARGET_MINTIME 0.001
+
+// exponent for distance. use 0.5 for sqrt
+#define DIST_POW 0.505
 
 // how much to weight the map, usually > 100
 #define MAP_WEIGHT 1.0
@@ -49,11 +53,12 @@ public:
 	float cx, cy, ca; // current position
 	hexapod *hex;
 	slam *slammer;
+	logger *log;
 	mutex anlock;
 
 	// constructor
 	autonav ();
-	void init(hexapod *hex0, slam *slammer0, float x, float y, float a);
+	void init(hexapod *hex0, slam *slammer0, logger *log0, float x, float y, float a);
 	void addTarget(float xpos, float ypos, float rad);
 	void solve(float currx, float curry, float currang);
 	void close();
