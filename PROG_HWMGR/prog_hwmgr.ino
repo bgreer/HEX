@@ -15,6 +15,7 @@
 #define PID_D 0.1
 
 #define PIN_DEBUG1 24
+#define PIN_LED 13
 
 // TARGET: UDOO Arduin Due
 
@@ -27,8 +28,8 @@ int lidar_packet_index;
 uint16_t lidar_dist[360];
 float lidar_strength[360];
 //uint8_t lidar_warning[360], lidar_invalid[360];
-uint32_t lastpidupdate;
-bool lidar_spinning;
+uint32_t lastpidupdate, lastled;
+bool lidar_spinning, led;
 packet *pack_lidar;
 unsigned char pack_lidar_prebuff[256];
 uint8_t lidar_index;
@@ -184,6 +185,21 @@ void lidar_parsePacket()
 
 void setup ()
 {
+	// input for thinds used by main processor
+	pinMode(PIN_LED, OUTPUT); // orange LED
+	digitalWrite(PIN_LED, LOW);
+	led = false;
+	lastled = 0;
+	pinMode(12, INPUT); // white LED
+	digitalWrite(12, LOW);
+	pinMode(11, INPUT); // blue LED
+	digitalWrite(11, LOW);
+	pinMode(10, INPUT); // green LED
+	digitalWrite(10, LOW);
+	pinMode(9, INPUT_PULLUP);
+	pinMode(7, INPUT_PULLUP);
+	pinMode(6, INPUT_PULLUP);
+
 	pinMode(PIN_DEBUG1, OUTPUT);
 	pinMode(MOTOR_PIN, OUTPUT);
 	analogWrite(MOTOR_PIN, 0);
@@ -315,4 +331,16 @@ void loop ()
 	checkLidar(); // check comms with lidar unit
 //	delay(LOOP_DELAY);
 
+	if (millis()-lastled > 500)
+	{
+		lastled = millis();
+		if (led)
+		{
+			digitalWrite(PIN_LED, LOW);
+			led = false;
+		} else {
+			digitalWrite(PIN_LED, HIGH);
+			led = true;
+		}
+	}
 }
