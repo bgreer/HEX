@@ -2,10 +2,11 @@
 
 // the Arbotix-M might be off or initializing, so keep sending the request
 // until you hear something back
-bool confirmArbotixConnection (serial *ser, hexapod &hex)
+bool confirmArbotixConnection (serial *ser, hexapod *hex)
 {
-	int attempts;
-	packet *pack, *pack_recv;
+	int attempts, ii;
+	float pos;
+	packet *pack, *pack2;
 
 	pack = new packet(16, 'A');
 	pack->data[0] = 0x05;
@@ -16,7 +17,7 @@ bool confirmArbotixConnection (serial *ser, hexapod &hex)
 
 	pack2 = NULL;
 	attempts = 0;
-	while ((pack2 = ser.recv('U', 0x01, false)) == NULL && attempts < 10)
+	while ((pack2 = ser->recv('U', 0x01, false)) == NULL && attempts < 10)
 	{
 		attempts ++;
 		ser->send(pack, true);

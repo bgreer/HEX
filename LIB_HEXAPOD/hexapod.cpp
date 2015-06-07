@@ -21,10 +21,13 @@ void hexapod::step (float dt)
 	// make sure speed doesnt change too rapidly
 	smoothspeed = 0.95*smoothspeed + 0.05*speed;
 	// cap the rate at which turning can change
+	/*
 	turn_step = (smoothturning - turning);
 	if (turn_step > TURN_SLEW*dt) turn_step = TURN_SLEW*dt;
 	if (turn_step < -TURN_SLEW*dt) turn_step = -TURN_SLEW*dt;
 	smoothturning += turn_step;
+	*/
+	smoothturning = 0.95*smoothturning + 0.05*turning;
 	hexlock.unlock();
 
 	// to control walking, modify speed and turning

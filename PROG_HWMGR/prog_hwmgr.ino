@@ -15,7 +15,7 @@
 #define PID_D 0.1
 
 #define PIN_DEBUG1 24
-#define PIN_LED 13
+#define PIN_LED 7
 
 // TARGET: UDOO Arduin Due
 
@@ -190,15 +190,15 @@ void setup ()
 	digitalWrite(PIN_LED, LOW);
 	led = false;
 	lastled = 0;
-	pinMode(12, INPUT); // white LED
-	digitalWrite(12, LOW);
-	pinMode(11, INPUT); // blue LED
-	digitalWrite(11, LOW);
-	pinMode(10, INPUT); // green LED
-	digitalWrite(10, LOW);
+	pinMode(6, INPUT); // white LED
+	digitalWrite(6, LOW);
+	pinMode(5, INPUT); // blue LED
+	digitalWrite(5, LOW);
+	pinMode(4, INPUT); // green LED
+	digitalWrite(4, LOW);
 	pinMode(9, INPUT_PULLUP);
-	pinMode(7, INPUT_PULLUP);
-	pinMode(6, INPUT_PULLUP);
+	pinMode(2, INPUT_PULLUP);
+	pinMode(3, INPUT_PULLUP);
 
 	pinMode(PIN_DEBUG1, OUTPUT);
 	pinMode(MOTOR_PIN, OUTPUT);

@@ -5,11 +5,23 @@
 # if it does, you'll need to reboot the whole robot
 # :(
 
+# make sure you run this as root!
+if [[ $EUID -ne 0 ]]; then
+	echo "This script must be run as root!" 1>&2
+	exit 1
+fi
 
 # the goal here is to run the main code and watch for completion
 # if it crashes, rerun it
 
 DIR=/home/bgreer/PROJECTS/HEX/
+GREEN_LED=/sys/class/gpio/gpio17
+BLUE_LED=/sys/class/gpio/gpio18
+WHITE_LED=/sys/class/gpio/gpio41
+BUTTON_1=0 # not assigned
+BUTTON_2=/sys/class/gpio/gpio16
+BUTTON_3=/sys/class/gpio/gpio20
+BUTTON_4=/sys/class/gpio/gpio19
 
 # clear previous log file
 rm -f ${DIR}/runlog

@@ -33,7 +33,11 @@ int main(int argc, char *argv[])
 	unsigned char chk;
 	bool quit;
 	uint32_t delaytime;
-
+	setLIDARSpin(&ser, false);
+	setLED(LED_GREEN, false);
+	setLED(LED_BLUE, false);
+	setLED(LED_WHITE, false);
+	
 	prevx = 0.0;
 	prevy = 0.0;
 	preva = 0.0;
@@ -70,9 +74,24 @@ int main(int argc, char *argv[])
 	// wait for user input before moving on
 #ifdef MANUAL
 	if (DEBUG) cout << "Press Start to continue." << endl;
-	getButtonPress(7, true); // blocking wait for Start button, manual.cpp
+	getRemoteButtonPress(7, true); // blocking wait for Start button, manual.cpp
 #else
 	// wait for init button
+	quit = false;
+	lasttime = getTime();
+	setLED(LED_WHITE, true);
+	while (!quit)
+	{
+		if (getTime() - lasttime > 0.5) setLED(LED_WHITE, false);
+		if (getTime() - lasttime > 1.0)
+		{
+			lasttime = getTime();
+			setLED(LED_WHITE, true);
+		}
+		quit = getButtonPress(BUTTON_2, false);
+	}
+	setLED(LED_WHITE, false);
+	usleep(250000);
 #endif
 
 	// STEP 4: enable hardware
@@ -82,14 +101,30 @@ int main(int argc, char *argv[])
 	// stand up safely while LIDAR gets up to speed
 	if (DEBUG) cout << "Performing Safe Stand.." << endl;
 	performSafeStand(&hex, &ser);
+	setLED(LED_WHITE, true);
 	usleep(1000*1000*3); // wait more for LIDAR
 
 	// wait for user input before using lidar scans
 #ifdef MANUAL
 	if (DEBUG) cout << "Press Start to continue." << endl;
-	getButtonPress(7, true); // blocking wait for Start button, manual.cpp
+	getRemoteButtonPress(7, true); // blocking wait for Start button, manual.cpp
 #else
 	// wait for init button
+	quit = false;
+	lasttime = getTime();
+	setLED(LED_BLUE, true);
+	while (!quit)
+	{
+		if (getTime() - lasttime > 0.5) setLED(LED_BLUE, false);
+		if (getTime() - lasttime > 1.0)
+		{
+			lasttime = getTime();
+			setLED(LED_BLUE, true);
+		}
+		quit = getButtonPress(BUTTON_3, false);
+	}
+	setLED(LED_BLUE, false);
+	usleep(250000);
 #endif
 
 	// STEP 5: get initial LIDAR scan of surroundings
@@ -102,14 +137,17 @@ int main(int argc, char *argv[])
 	{
 		if ((lidar_scan=getLIDARData(&ser, true)) != NULL)
 		{
+			setLED(LED_BLUE, true);
 			slammer.integrate(lidar_scan, 0.0, 0.0, 0.0);
 			delete lidar_scan;
+			setLED(LED_BLUE, false);
 			scans ++;
 		}
 #ifdef MANUAL
-		quit = getButtonPress(7, false);
+		quit = getRemoteButtonPress(7, false);
 #else
 		// check status of button
+		quit = getButtonPress(BUTTON_3, false);
 #endif
 		usleep(1000*10);
 	}
@@ -121,8 +159,26 @@ int main(int argc, char *argv[])
 	time = 0.0;
 	lasttime = getTime();
 	lastdata = lasttime;
+	setLED(LED_BLUE, true);
 
-
+	// wait for go button!
+#ifndef MANUAL
+	quit = false;
+	lasttime = getTime();
+	setLED(LED_GREEN, true);
+	while (!quit)
+	{
+		if (getTime() - lasttime > 0.5) setLED(LED_GREEN, false);
+		if (getTime() - lasttime > 1.0)
+		{
+			lasttime = getTime();
+			setLED(LED_GREEN, true);
+		}
+		quit = getButtonPress(BUTTON_4, false);
+	}
+	setLED(LED_GREEN, true);
+	usleep(250000);
+#endif
 	// Now we are ready to move around!
 	
 
@@ -200,6 +256,7 @@ int main(int argc, char *argv[])
 			quit = true;
 		}
 		nav.anlock.unlock();
+		quit = getButtonPress(BUTTON_4, false);
 #endif
 
 
@@ -219,6 +276,9 @@ int main(int argc, char *argv[])
 	disableServos(&ser); // set servos to disabled (no torque)
 	ser.close(); // close serial port
 	log.close(); // finish logging, close log file
-
+	// turn off the lights
+	setLED(LED_GREEN, false);
+	setLED(LED_BLUE, false);
+	setLED(LED_WHITE, false);
 
 }

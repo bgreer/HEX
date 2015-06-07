@@ -12,3 +12,37 @@ double getTime()
 }
 #endif
 
+void setLED (uint8_t id, bool value)
+{
+	int fd;
+	char buf[128];
+	ssize_t ret;
+
+	sprintf(buf, "/sys/class/gpio/gpio%d/value", id);
+	fd = open(buf, O_WRONLY);
+	if (value) ret = write(fd, "1", 1); 
+	else ret = write(fd, "0", 1);
+	close(fd);
+}
+
+bool getButtonPress (uint8_t id, bool blocking)
+{
+	int fd;
+	char buf[128], val;
+	ssize_t ret;
+
+	sprintf(buf, "/sys/class/gpio/gpio%d/value", id);
+	fd = open(buf, O_RDONLY);
+	ret = read(fd, &val, 1);
+	close(fd);
+	usleep(50000);
+	while (val!='0' && blocking)
+	{
+		usleep(100000);
+		fd = open(buf, O_RDONLY);
+		ret = read(fd, &val, 1);
+		close(fd);
+	}
+	close(fd);
+	return (val=='0');
+}

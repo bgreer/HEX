@@ -46,13 +46,13 @@ void updateManualControl (bool *quit, float *speed, float *turning,
 				break;
 			case SDL_JOYAXISMOTION:
 				joyval = -event.jaxis.value/32767.;
-				if (event.jaxis.axis == 1 && 0) // L stick, yaxis
+				if (event.jaxis.axis == 1) // L stick, yaxis
 				{
 					if (joyval > 0.1) *speed = (joyval - 0.1);
 					else if (joyval < -0.1) *speed = (joyval + 0.1);
 					else *speed = 0.0;
 				}
-				if (event.jaxis.axis == 2 && 0) // R stick, xaxis
+				if (event.jaxis.axis == 2) // R stick, xaxis
 				{
 					if (joyval > 0.1) *turning = (joyval-0.1);
 					else if (joyval < -0.1) *turning = (joyval+0.1);
@@ -72,7 +72,7 @@ void updateManualControl (bool *quit, float *speed, float *turning,
 	}
 }
 
-bool getButtonPress (int id, bool blocking)
+bool getRemoteButtonPress (int id, bool blocking)
 {
 	bool ret = false;
 	SDL_Event event;
