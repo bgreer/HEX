@@ -8,6 +8,10 @@
 
 using namespace std;
 
+void parseCmdLine(int argc, char *argv[], 
+		float *reg_pos, float *reg_ang, int *grid_size, float *grid_scale, 
+		string *waypoint_fname, float *init_x, float *init_y, float *init_ang);
+
 int main(int argc, char *argv[])
 {
 	int ii, ij, ik, ix, iy, size, ind;
@@ -33,21 +37,34 @@ int main(int argc, char *argv[])
 	unsigned char chk;
 	bool quit;
 	uint32_t delaytime;
+	// commandline args
+	float reg_pos, reg_ang, grid_scale, init_x, init_y, init_ang;
+	int grid_size;
+	string waypoint_fname;
+
+	// grab command-line options
+	parseCmdLine(argc, argv, &reg_pos, &reg_ang, 
+			&grid_size, &grid_scale, &waypoint_fname, 
+			&init_x, &init_y, &init_ang);
+
 	setLIDARSpin(&ser, false);
 	setLED(LED_GREEN, false);
 	setLED(LED_BLUE, false);
 	setLED(LED_WHITE, false);
-	
-	prevx = 0.0;
-	prevy = 0.0;
-	preva = 0.0;
+
+	prevx = init_x;
+	prevy = init_y;
+	preva = init_ang;
 
 	// STEP 1: initialize classes
 	if (DEBUG) cout << "Initializing..." << endl;
 	log.init("logfile", true); // log file
-	slammer.init(128,128,5.0);
-	slammer.setRegularization(0.3,0.3,1.0);
-	nav.init(&hex, &slammer, &log, 0,0,0);
+	slammer.init(grid_size,grid_size,grid_scale);
+	slammer.currx = init_x;
+	slammer.curry = init_y;
+	slammer.currang = init_ang;
+	slammer.setRegularization(reg_pos,reg_pos,reg_ang);
+	nav.init(&hex, &slammer, &log, init_x,init_y,init_ang);
 	ser.init_old("/dev/ttymxc3", false); // serial comm with Due
 #ifdef MANUAL
 	if (initSDL(screen, joy) != 0) return -1;
@@ -55,7 +72,15 @@ int main(int argc, char *argv[])
 
 
 	// STEP 2: load waypoints for autonav
-	nav.addTarget(100.0, 0.0, 10.0);
+	if (waypoint_fname == "")
+	{
+		// dummy target 1m forward
+		nav.addTarget(init_x+100.0*cos(init_ang), 
+				init_y+100.*sin(init_ang), 10.0);
+	} else {
+		// load from file
+		nav.loadTargets(waypoint_fname);
+	}
 
 
 	// STEP 3: confirm connection with arbotix-m
@@ -281,4 +306,85 @@ int main(int argc, char *argv[])
 	setLED(LED_BLUE, false);
 	setLED(LED_WHITE, false);
 
+}
+
+// use tclap library to parse command-line options
+void parseCmdLine(int argc, char *argv[], 
+		float *reg_pos, float *reg_ang, int *grid_size, float *grid_scale, 
+		string *waypoint_fname, float *init_x, float *init_y, float *init_ang)
+{
+	bool crash;
+
+	try
+	{
+		TCLAP::CmdLine cmd("Hexapod Code", ' ', "0.9");
+		
+		// SLAM regularization
+		TCLAP::ValueArg<float> arg_reg_pos("p", "reg_pos", 
+				"SLAM Regularization for Position", false, 0.3, "float value");
+		cmd.add(arg_reg_pos);
+		TCLAP::ValueArg<float> arg_reg_ang("a", "reg_ang", 
+				"SLAM Regularization for Angle", false, 0.3, "float value");
+		cmd.add(arg_reg_ang);
+
+		// autonav waypoint file
+		TCLAP::ValueArg<string> arg_waypoints("w", "waypoints", 
+				"Autonav Waypoint file", false, "", "filename");
+		cmd.add(arg_waypoints);
+
+		// SLAM grid resolution
+		TCLAP::ValueArg<int> arg_grid_size("r", "grid_size", 
+				"SLAM Grid Size, in pixels", false, 128, "integer value");
+		cmd.add(arg_grid_size);
+
+		// SLAM grid scale
+		TCLAP::ValueArg<float> arg_grid_scale("s", "grid_scale", 
+				"SLAM Grid Scale, cm per pixel", false, 10.0, "float value");
+		cmd.add(arg_grid_scale);
+
+		// initial position and angle
+		TCLAP::ValueArg<float> arg_init_x("x", "init_x", 
+				"Initial x position, in cm", false, 0.0, "float value");
+		cmd.add(arg_init_x);
+		TCLAP::ValueArg<float> arg_init_y("y", "init_y", 
+				"Initial y position, in cm", false, 0.0, "float value");
+		cmd.add(arg_init_y);
+		TCLAP::ValueArg<float> arg_init_ang("t", "init_ang", 
+				"Initial angle, in radians", false, 0.0, "float value");
+		cmd.add(arg_init_ang);
+
+		//  have options loaded, parse what we have
+		cmd.parse(argc, argv);
+
+		// grab results
+		*reg_pos = arg_reg_pos.getValue();
+		*reg_ang = arg_reg_ang.getValue();
+		*grid_size = arg_grid_size.getValue();
+		*grid_scale = arg_grid_scale.getValue();
+		*waypoint_fname = arg_waypoints.getValue();
+		*init_x = arg_init_x.getValue();
+		*init_y = arg_init_y.getValue();
+		*init_ang = arg_init_ang.getValue();
+
+		// check values
+		crash = false;
+		if (*reg_pos < 1e-5 || *reg_pos > 1e7)
+			{cout << "ERROR: Invalid SLAM regularization on position" << endl;crash = true;}
+		if (*reg_ang < 1e-5 || *reg_ang > 1e7)
+			{cout << "ERROR: Invalid SLAM regularization on angle" << endl;crash = true;}
+		if (*grid_size < 1 || *grid_size > 4096)
+			{cout << "ERROR: Invalid SLAM grid size" << endl;crash = true;}
+		if (*grid_scale < 1e-2 || *grid_scale > 1e4)
+			{cout << "ERROR: Invalid SLAM grid scale" << endl;crash = true;}
+		if (*init_x < -1e4 || *init_x > 1e4)
+			{cout << "ERROR: Invalid initial x-pos" << endl;crash = true;}
+		if (*init_y < -1e4 || *init_y > 1e4)
+			{cout << "ERROR: Invalid initial y-pos" << endl;crash = true;}
+		if (*init_ang < -2*PI || *init_ang > 2*PI)
+			{cout << "ERROR: Invalid initial angle" << endl;crash = true;}
+		if (crash) exit(-1);
+
+	} catch (TCLAP::ArgException &e) {
+		cerr << "error: " << e.error() << " for arg " << e.argId() << endl;
+	}
 }

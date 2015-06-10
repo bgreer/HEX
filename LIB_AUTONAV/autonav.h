@@ -7,6 +7,8 @@
 #include <vector>
 #include <mutex>
 #include <thread>
+#include <iostream>
+#include <fstream>
 
 // minimum time needed to spend near target before moving to next one
 // in seconds
@@ -60,6 +62,7 @@ public:
 	autonav ();
 	void init(hexapod *hex0, slam *slammer0, logger *log0, float x, float y, float a);
 	void addTarget(float xpos, float ypos, float rad);
+	void loadTargets(string fname);
 	void solve(float currx, float curry, float currang);
 	void close();
 };

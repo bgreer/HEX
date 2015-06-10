@@ -15,11 +15,18 @@ LOGGER = $(LOGGERDIR)/logger.cpp $(LOGGERDIR)/logger.h
 NAV = $(NAVDIR)/autonav.cpp $(NAVDIR)/autonav.h
 SDL = -I/usr/local/include/SDL -L/usr/local/lib -lSDL
 
-LIBS = $(SDL) -D_GNU_SOURCE=1 -D_REENTRANT -pthread -lpthread -lrt -ldl -lfftw3_threads -lfftw3 -lm
+TCLAP = -I/home/bgreer/SOFTWARE/tclap-1.2.1/include
+LIBS = $(SDL) -D_GNU_SOURCE=1 -D_REENTRANT -pthread -lpthread -lrt -ldl $(TCLAP) -lfftw3_threads -lfftw3 -lm
 
 # this needs to be cleaned up
-hex : main.cpp manual.cpp actions.cpp monitor.cpp serial.o $(PACKET) $(HEXAPOD) logger.o slam.o autonav.o
-	g++ -std=c++0x -O3 -g -o hex main.cpp manual.cpp actions.cpp monitor.cpp serial.o $(PACKET) $(HEXAPOD) logger.o slam.o autonav.o $(LIBS)
+hex : main.cpp manual.cpp actions.cpp monitor.cpp serial.o packet.o hexapod.o logger.o slam.o autonav.o
+	g++ -std=c++0x -O3 -g -o hex main.cpp manual.cpp actions.cpp monitor.cpp serial.o packet.o hexapod.o logger.o slam.o autonav.o $(LIBS)
+
+hexapod.o : $(HEXAPOD)
+	g++ -std=c++0x -O3 -c $(HEXAPOD) $(LIBS)
+
+packet.o : $(PACKET)
+	g++ -std=c++0x -O3 -c $(PACKET) $(LIBS)
 
 serial.o : $(SERIAL)
 	g++ -std=c++0x -O3 -c $(SERIAL) $(LIBS)

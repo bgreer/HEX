@@ -16,6 +16,7 @@
 #include "/home/bgreer/PROJECTS/HEX/LIB_SERIAL/serial.h"
 #include "/home/bgreer/PROJECTS/HEX/LIB_HEXAPOD/hexapod.h"
 #include "/home/bgreer/PROJECTS/HEX/LIB_LOGGER/logger.h"
+#include "tclap/CmdLine.h"
 #ifdef MANUAL
 #include <SDL.h>
 #endif

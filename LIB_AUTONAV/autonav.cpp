@@ -218,6 +218,44 @@ void autonav::addTarget (float xpos, float ypos, float rad)
 	anlock.unlock();
 }
 
+// format of (ascii) target file is:
+// xpos0	ypos0	radius0
+// xpos1	ypos1	radius1
+// ...
+void autonav::loadTargets (string fname)
+{
+	int ii, num, ret;
+	// old school file reading because I don't have internet right now
+	// so I can't look up the c++ way
+	FILE *fp;
+	char instr[512];
+	float f1, f2, f3;
+
+	fp = fopen(fname.c_str(), "r");
+	if (fp == NULL)
+	{
+		cout << "ERROR: could not open waypoint file: " << fname << endl;
+		exit(-1);
+	}
+	// get number of lines
+	num = 0;
+	while (fgets(instr, 512, fp) != NULL)
+		num ++;
+
+	for (ii=0; ii<num; ii++)
+	{
+		ret = fscanf(fp, "%f\t%f\t%f\n", &f1, &f2, &f3);
+		if (ret != 0)
+		{
+			cout << "ERROR: invalid waypoint at line " << (ii+1) << endl;
+			exit(-1);
+		}
+		addTarget(f1,f2,f3);
+	}
+	
+	fclose(fp);
+}
+
 void autonav::solve (float currx, float curry, float currang)
 {
 	float dt;
