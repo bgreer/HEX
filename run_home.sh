@@ -12,7 +12,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # command-line arguments for hex code
-ARGS= --init_ang 3.14 --init_x 0.0 --init_y -4320.0 --grid_scale 10.0 --grid_size 1024 --reg_ang 3.0 --reg_pos 3.0 --waypoints wp_race
+ARGS= --init_ang 0.0 --init_x -400 --init_y -300 --grid_scale 5.0 --grid_size 512 --reg_ang 0.3 --reg_pos 0.3 --waypoints wp_home
 
 # the goal here is to run the main code and watch for completion
 # if it crashes, rerun it

@@ -14,8 +14,7 @@ void parseCmdLine(int argc, char *argv[],
 
 int main(int argc, char *argv[])
 {
-	int ii, ij, ik, ix, iy, size, ind;
-	int cx, cy, attempts, scans;
+	int ii, scans;
 	// so many custom classes!
 	autonav nav;
 	serial ser;
@@ -30,11 +29,8 @@ int main(int argc, char *argv[])
 #endif
 	double time, lasttime, dt, lastdata;
 	double lastslam, lastscan, lastloop, lastnav;
-	uint8_t errcode;
-	float pos, avgtemp, joyval, maxval;
 	float prevx, prevy, preva; // for slam guessi
 	float dx, dy, da;
-	unsigned char chk;
 	bool quit;
 	uint32_t delaytime;
 	// commandline args
