@@ -4,4 +4,3 @@ let autonav load waypoints from file
 longer autonav tests
 let logger find unique filename for log file
 write reconstruction code, takes log and plots what happened as animation
-work on bezier js app

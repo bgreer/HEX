@@ -5,8 +5,8 @@ var btimeout;
 var bdt = 0.005;
 var btime = 0.0;
 var bstep = 0;
-var bmode = 0;
-var blevel = 1; // [0,5] inclusive
+var bmode = 1;
+var blevel = 0; // [0,5] inclusive
 var bsimrun = false; // allows sim to be paused
 var bdragging = false;
 var bslider;
@@ -48,12 +48,27 @@ function bez_handlemousedown(event)
 	bdragging = true;
 	bslider = -1;
 
-	bslider = -1;
 	for (var i=1; i<numanc-1; i++)
 	{
 		if (Math.sqrt(Math.pow(x-250-bxanc[i],2) + Math.pow(y-250+byanc[i],2)) <= 8)
 		  bslider = i;
 	}
+	
+	if (x >= 320 && x <= 470 && y >= 318 && y <= 338)
+	{
+		bslider = 100;
+		bez_moveSlider(x-320);
+	}
+}
+
+function bez_moveSlider(x)
+{
+	var value, logval;
+
+	value = (x/150.)*5.;
+	blevel = Math.round(value);
+	if (blevel < 0) blevel = 0;
+	if (blevel > 5) blevel = 5;
 }
 function bez_handlemouseup(event)
 {
@@ -65,11 +80,13 @@ function bez_handlemouseup(event)
 
 function bez_handlemousemove(event)
 {
-	if (bdragging && bslider > 0)
-		bez_moveAncor(event.pageX - bcanv.offsetLeft, event.pageY - bcanv.offsetTop);
+	if (bdragging && bslider > 0 && bslider < 50)
+		bez_moveAnchor(event.pageX - bcanv.offsetLeft, event.pageY - bcanv.offsetTop);
+	if (bdragging && bslider == 100)
+		bez_moveSlider(event.pageX - bcanv.offsetLeft-320);
 }
 
-function bez_moveAncor(x, y)
+function bez_moveAnchor(x, y)
 {
 	var value, logval;
 
@@ -87,6 +104,12 @@ function bez_handleclick(event)
   var x = event.pageX - bcanv.offsetLeft;
   var y = event.pageY - bcanv.offsetTop;
 
+
+	if (Math.sqrt(Math.pow(x-35,2) + Math.pow(y-328,2)) <= 10)
+	  bmode = 0;
+	if (Math.sqrt(Math.pow(x-125,2) + Math.pow(y-328,2)) <= 10)
+	  bmode = 1;
+
   if (bsimrun==false) bez_draw();
 }
 
@@ -103,11 +126,15 @@ function bez_run()
 	{
 		bxpos = bez_getX(btime/fdf);
 		bypos = bez_getY(btime/fdf);
+		if (bmode == 0)
+		{
+			bxpos = -50. + 100.*(btime)/fdf;
+			bypos = 100.0*Math.sin(btime*3.14159/fdf);
+		}
 	} else {
 		bxpos = 50. - 100.*(btime-fdf)/(1.-fdf);
 		bypos = 0.0;
 	}
-
 	
 	bez_draw();
 }
@@ -122,6 +149,11 @@ function bez_getLength()
 	{
 		bx = bez_getX(i*0.01);
 		by = bez_getY(i*0.01);
+		if (bmode == 0)
+		{
+			bxpos = -50. + 100.*i*0.01;
+			bypos = 100.0*Math.sin(i*0.01*3.14159);
+		}
 		l += Math.sqrt((bx-bxo)*(bx-bxo) + (by-byo)*(by-byo));
 		bxo = bx;
 		byo = by;
@@ -197,6 +229,8 @@ function bez_draw()
 	bctx.stroke();
 
 	// helper lines
+if (bmode == 1)
+{
 	bctx.lineWidth = 2;
 	bctx.strokeStyle = '#dddddd';
 	bctx.beginPath();
@@ -204,7 +238,6 @@ function bez_draw()
 	for (i=1; i<numanc; i++)
 		bctx.lineTo(250+bxanc[i],250-byanc[i]);
 	bctx.stroke();
-
 if (btime < fdf)
 {
 	t = btime/fdf;
@@ -254,7 +287,7 @@ if (btime < fdf)
 		bctx.fill();
 		bctx.stroke();
 	}
-
+}
 	// bezier curve
 	bctx.lineWidth = 2;
 	bctx.strokeStyle = '#999999';
@@ -266,6 +299,12 @@ if (btime < fdf)
 	{
 		bx = bez_getX(i*0.01);
 		by = bez_getY(i*0.01);
+		if (bmode==0)
+		{
+			bx = -50. + i;
+			by = 100.0*Math.sin(i*0.01*3.14159);
+		}
+		/*
 		if (by < 0 && coll == false)
 		{
 			coll = true;
@@ -282,11 +321,11 @@ if (btime < fdf)
 			bctx.beginPath();
 			bctx.moveTo(250+px,250-py);
 		}
+		*/
 		bctx.lineTo(250+bx, 250-by);
 		px=bx; py=by;
 	}
 	bctx.stroke();
-
 
 	// current position
 	bctx.fillStyle = '#7996de';
@@ -319,6 +358,27 @@ if (btime < fdf)
 	bctx.fillStyle = "#999999";
 	bctx.fillText("BEZIER",140,333);
 
+	// slider
+	if (bmode == 1)
+	{
+		bctx.fillText("GUIDE LEVEL:",220,333);
+  	bctx.strokeStyle = '#bbbbbb';
+  	bctx.lineWidth = 5;
+		bctx.beginPath();
+  	bctx.moveTo(320,328);
+  	bctx.lineTo(470,328);
+  	bctx.stroke();
+  	bctx.lineWidth = 1;
+  	bctx.strokeStyle = '#dddddd';
+	  for (var j=0; j<6; j++)
+		{
+			bctx.moveTo(320+j*150.0/5.0,318);
+			bctx.lineTo(320+j*150.0/5.0,338);
+			bctx.stroke();
+		}
+  	bctx.fillStyle = '#555555';
+  	bctx.fillRect(320-3+(blevel)*150/5+1,320,5,16);
+	}
 }
 
 
