@@ -43,6 +43,9 @@ int main(int argc, char *argv[])
 			&grid_size, &grid_scale, &waypoint_fname, 
 			&init_x, &init_y, &init_ang);
 
+	log.init("logfile", true); // log file
+	ser.init_old("/dev/ttymxc3", false); // serial comm with Due
+	
 	setLIDARSpin(&ser, false);
 	setLED(LED_GREEN, false);
 	setLED(LED_BLUE, false);
@@ -54,14 +57,12 @@ int main(int argc, char *argv[])
 
 	// STEP 1: initialize classes
 	if (DEBUG) cout << "Initializing..." << endl;
-	log.init("logfile", true); // log file
 	slammer.init(grid_size,grid_size,grid_scale);
 	slammer.currx = init_x;
 	slammer.curry = init_y;
 	slammer.currang = init_ang;
 	slammer.setRegularization(reg_pos,reg_pos,reg_ang);
 	nav.init(&hex, &slammer, &log, init_x,init_y,init_ang);
-	ser.init_old("/dev/ttymxc3", false); // serial comm with Due
 #ifdef MANUAL
 	if (initSDL(screen, joy) != 0) return -1;
 #endif
