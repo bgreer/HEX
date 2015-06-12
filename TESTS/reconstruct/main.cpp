@@ -6,7 +6,7 @@
 
 Uint32 makeColor (uint8_t r, uint8_t g, uint8_t b)
 {
-	return (((Uint32)r)<<16) | (((Uint32)r)<<8) | ((Uint32)b);
+	return (((Uint32)r)<<16) | (((Uint32)g)<<8) | ((Uint32)b);
 }
 
 // the log file needs to have:
@@ -14,7 +14,7 @@ Uint32 makeColor (uint8_t r, uint8_t g, uint8_t b)
 // - hex differential position
 int main (int argc, char *argv[])
 {
-	double time, dt;
+	double time, dt, mintime, maxtime, nexttime;
 	unsigned char tag;
 	int ii, num, index, nx_screen, ny_screen, ix, iy;
 	int nx_slam, ny_slam, ind, ij;
@@ -57,14 +57,19 @@ int main (int argc, char *argv[])
 
 	// step 1: load log from file
 	cout << "Loading log file.." << endl;
+	mintime = 1e13;
+	maxtime = 0;
 	file.open(argv[1], ios::in | ios::binary);
 	done = false;
 	while (!done)
 	{
 		file.read(reinterpret_cast<char*>(&(time)), sizeof(double));
+		if (time < mintime) mintime = time;
+		if (time > maxtime) maxtime = time;
 		file.read(reinterpret_cast<char*>(&(tag)), sizeof(unsigned char));
 		file.read(reinterpret_cast<char*>(&(num)), sizeof(int));
 		d = new data_chunk(tag);
+		d->time = time;
 		for (ii=0; ii<num; ii++)
 		{
 			file.read(reinterpret_cast<char*>(&(value)), sizeof(float));
@@ -75,13 +80,16 @@ int main (int argc, char *argv[])
 	}
 	file.close();
 	cout << "Done." << endl;
+	cout << "Number of data entries: " << dlist.size() << endl;
 
 	// step 2: set up slam
+	cout << "Initializing SLAM.." << endl;
 	slammer.init(nx_slam,ny_slam,scale);
 	slammer.currx = init_x;
 	slammer.curry = init_y;
 	slammer.currang = init_x;
 	slammer.setRegularization(0.3,0.3,0.3);
+	cout << "Done." << endl;
 
 	// step 3: set up SDL window
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -94,14 +102,17 @@ int main (int argc, char *argv[])
 	pix = (Uint32*)screen->pixels;
 
 	// begin stepping through log
-	time = 0.0;
+	time = mintime;
 	index = 0; // where we are in the dlist
-	while (index < dlist.size())
+	while (index < dlist.size() && time < maxtime+1.0)
 	{		
 		// increment time
 		time += dt;
+		usleep(dt*100000);
 		// loop through entries leading up to this time
-		while (dlist[index]->time <= time)
+		cout << index << " " << dlist[index]->time << " " << time << endl;
+		nexttime = dlist[index]->time;
+		while (nexttime <= time)
 		{
 			// do something with dlist[index]
 			if (dlist[index]->tag == 'I')
@@ -115,6 +126,7 @@ int main (int argc, char *argv[])
 					s->dist[ii] = dlist[index]->data[ii*2+1];
 				}
 				slammer.integrate(s, init_x, init_y, init_ang);
+				slammer.filter();
 				delete s;
 			} else if (dlist[index]->tag == 'S') {
 				cout << "stepping at time " << dlist[index]->time << ", size=" << dlist[index]->num << endl;
@@ -139,6 +151,10 @@ int main (int argc, char *argv[])
 				ang = dlist[index]->data[2];
 			}
 			index++;
+			if (index < dlist.size())
+				nexttime = dlist[index]->time;
+			else
+				nexttime = maxtime+1.0;
 		}
 
 		// render results to screen
@@ -152,16 +168,21 @@ int main (int argc, char *argv[])
 				// slam map, fill screen
 				ii = ix*nx_slam/nx_screen;
 				ij = iy*ny_slam/ny_screen;
-				value = slammer.map[ii*ny_slam+ij];
-				pix[ind] = makeColor(100,127-value*127,127+value*127);
+				value = min(-0.04*slammer.map_filt[ii*ny_slam+ij],0.5) + slammer.map[ii*ny_slam+ij];
+				pix[ind] = makeColor((uint8_t)min(510.*value,255.),
+														(uint8_t)max(0.,min(510.*value-127.,255.)),
+														(uint8_t)max(0.,min(510.*value-255.,255.)));
 
 				// plot position
-				if (sqrt(pow((ix-nx_slam/2)*scale-x,2)+pow((iy-ny_slam/2)*scale-y,2)) 
-						<= 4*scale)
+				if (sqrt(pow((ix-nx_screen/2)*scale*nx_slam/nx_screen-x,2)
+							+pow((iy-ny_screen/2)*ny_slam*scale/ny_screen-y,2))
+						<= 2*scale) // in cm
 					pix[ind] = makeColor(255,255,255);
 
 			}
 		}
+		SDL_Flip(screen);
 	}
+	cout << "Done looping." << endl;
 
 }
