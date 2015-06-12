@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
 	hexapod hex;
 	data_chunk *d, *d2;
 	logger log;
-	scan *lidar_scan;
+	scan *lidar_scan, *slow_scan;
 	slam slammer;
 #ifdef MANUAL
 	SDL_Surface *screen;
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 			&grid_size, &grid_scale, &waypoint_fname, 
 			&init_x, &init_y, &init_ang);
 
-	log.init("logfile", true); // log file
+	log.init("logfile", false); // log file
 	ser.init_old("/dev/ttymxc3", false); // serial comm with Due
 	
 	setLIDARSpin(&ser, false);
@@ -67,6 +67,12 @@ int main(int argc, char *argv[])
 	if (initSDL(screen, joy) != 0) return -1;
 #endif
 
+	slow_scan = new scan(360);
+	for (ii=0; ii<360; ii++)
+	{
+		slow_scan->angle[ii] = ii*2*PI/360.;
+		slow_scan->dist[ii] = 0.0;
+	}
 
 	// STEP 2: load waypoints for autonav
 	if (waypoint_fname == "")
@@ -160,7 +166,14 @@ int main(int argc, char *argv[])
 		if ((lidar_scan=getLIDARData(&ser, true)) != NULL)
 		{
 			setLED(LED_BLUE, true);
-			slammer.integrate(lidar_scan, 0.0, 0.0, 0.0);
+			slammer.integrate(lidar_scan, init_x, init_y, init_ang);
+			d = new data_chunk('I');
+			for (ii=0; ii<lidar_scan->num; ii++)
+			{
+				d->add(lidar_scan->angle[ii]);
+				d->add(lidar_scan->dist[ii]);
+			}
+			log.send(d);
 			delete lidar_scan;
 			setLED(LED_BLUE, false);
 			scans ++;
@@ -226,6 +239,7 @@ int main(int argc, char *argv[])
 			usleep(1000);
 			if ((lidar_scan=getLIDARData(&ser, true)) != NULL)
 			{
+				slow_scan->incorporate(lidar_scan);
 				if (getTime() - lastslam > 1.5)
 				{
 					lastslam = getTime();
@@ -235,8 +249,19 @@ int main(int argc, char *argv[])
 					prevx = hex.dr_xpos;
 					prevy = hex.dr_ypos;
 					preva = hex.dr_ang;
-					slammer.submitScan(lidar_scan, 
+					slammer.submitScan(slow_scan, 
 							slammer.currx+dx, slammer.curry+dy, slammer.currang+da);
+					d = new data_chunk('S');
+					d->add(slammer.currx+dx);
+					d->add(slammer.curry+dy);
+					d->add(slammer.currang+da);
+					for (ii=0; ii<slow_scan->num; ii++)
+					{
+						d->add(slow_scan->angle[ii]);
+						d->add(slow_scan->dist[ii]);
+						slow_scan->dist[ii] = 0.0;
+					}
+					log.send(d);
 				}
 				delete lidar_scan;
 			}
@@ -244,14 +269,8 @@ int main(int argc, char *argv[])
 		}
 
 		
-		// log hexlib internal tracking
-		d = new data_chunk('P');
-		d->add(hex.dr_xpos);
-		d->add(hex.dr_ypos);
-		d->add(hex.dr_ang);
-		log.send(d);
 		// log slam tracking
-		d2 = new data_chunk('S');
+		d2 = new data_chunk('P');
 		d2->add(slammer.currx);
 		d2->add(slammer.curry);
 		d2->add(slammer.currang);

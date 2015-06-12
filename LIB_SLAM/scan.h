@@ -2,6 +2,7 @@
 #define SCAN_H
 #include <string.h>
 #include <stdlib.h>
+#include <cmath>
 
 class scan
 {
@@ -25,6 +26,22 @@ public:
 		memcpy(ret->dist, dist, num*sizeof(float));
 		memcpy(ret->weight, weight, num*sizeof(float));
 		return ret;
+	}
+
+	void incorporate (scan *s)
+	{
+		int ii, ij;
+		float diff;
+
+		for (ii=0; ii<num; ii++)
+		{
+			diff = 1e4;
+			for (ij=0; ij<s->num; ij++)
+			{
+				diff = fabs(angle[ii] - s->angle[ij]);
+				if (diff < 0.005) dist[ii] = s->dist[ij];
+			}
+		}
 	}
 
 	~scan ()
