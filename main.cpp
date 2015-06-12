@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
 	hexapod hex;
 	data_chunk *d, *d2;
 	logger log;
-	scan *lidar_scan, *slow_scan;
+	scan *lidar_scan, *total_scan;
 	slam slammer;
 #ifdef MANUAL
 	SDL_Surface *screen;
@@ -66,13 +66,6 @@ int main(int argc, char *argv[])
 #ifdef MANUAL
 	if (initSDL(screen, joy) != 0) return -1;
 #endif
-
-	slow_scan = new scan(360);
-	for (ii=0; ii<360; ii++)
-	{
-		slow_scan->angle[ii] = ii*2*PI/360.;
-		slow_scan->dist[ii] = 0.0;
-	}
 
 	// STEP 2: load waypoints for autonav
 	if (waypoint_fname == "")
@@ -239,7 +232,12 @@ int main(int argc, char *argv[])
 			usleep(1000);
 			if ((lidar_scan=getLIDARData(&ser, true)) != NULL)
 			{
-				slow_scan->incorporate(lidar_scan);
+				if (total_scan == NULL)
+					total_scan = lidar_scan->copy();
+				else
+					total_scan->incorporate(lidar_scan);
+				delete lidar_scan;
+
 				if (getTime() - lastslam > 1.5)
 				{
 					lastslam = getTime();
@@ -249,21 +247,20 @@ int main(int argc, char *argv[])
 					prevx = hex.dr_xpos;
 					prevy = hex.dr_ypos;
 					preva = hex.dr_ang;
-					slammer.submitScan(slow_scan, 
+					slammer.submitScan(total_scan, 
 							slammer.currx+dx, slammer.curry+dy, slammer.currang+da);
 					d = new data_chunk('S');
 					d->add(slammer.currx+dx);
 					d->add(slammer.curry+dy);
 					d->add(slammer.currang+da);
-					for (ii=0; ii<slow_scan->num; ii++)
+					for (ii=0; ii<total_scan->num; ii++)
 					{
-						d->add(slow_scan->angle[ii]);
-						d->add(slow_scan->dist[ii]);
-						slow_scan->dist[ii] = 0.0;
+						d->add(total_scan->angle[ii]);
+						d->add(total_scan->dist[ii]);
 					}
 					log.send(d);
+					delete total_scan;
 				}
-				delete lidar_scan;
 			}
 			lastscan = getTime();
 		}

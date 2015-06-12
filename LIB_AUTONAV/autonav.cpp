@@ -134,15 +134,12 @@ void autonav_loop (autonav *an)
 			path.push_back(thisnode);
 			close_x = (thisnode->xpos-nx/2)*scale;
 			close_y = (thisnode->ypos-ny/2)*scale;
+			d = new data_chunk('A');
 			while (thisnode->xpos != x0 || thisnode->ypos != y0)
 			{
 				thisnode = thisnode->pathtracer;
-				d = new data_chunk('A');
 				d->add(thisnode->xpos);
 				d->add(thisnode->ypos);
-				d->add(thisnode->f_score);
-				d->add(thisnode->g_score);
-				an->log->send(d);
 				path.push_back(thisnode);
 				if (sqrt(pow(thisnode->xpos-x0,2)+pow(thisnode->ypos-y0,2))*scale
 						> AN_MIN_TARGET_DIST)
@@ -151,6 +148,7 @@ void autonav_loop (autonav *an)
 					close_y = (thisnode->ypos-ny/2)*scale;
 				}
 			}
+			an->log->send(d);
 			
 			// clear sets
 			for (ii=0; ii<openset.size(); ii++)
@@ -173,7 +171,6 @@ void autonav_loop (autonav *an)
 				an->hex->turning = 5.*dang/PI;
 			else
 				an->hex->turning = 0.0;
-			cout << "set hex vals" << endl;
 			an->hex->hexlock.unlock();
 		} else {
 			usleep(10000);

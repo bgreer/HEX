@@ -149,6 +149,9 @@ int main (int argc, char *argv[])
 				x = dlist[index]->data[0];
 				y = dlist[index]->data[1];
 				ang = dlist[index]->data[2];
+			} else if (dlist[index]->tag == 'A') {
+				cout << "autonav path at time " << dlist[index]->time << ", size=" << dlist[index]->num << endl;
+				// autonav path
 			}
 			index++;
 			if (index < dlist.size())
