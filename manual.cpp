@@ -90,6 +90,6 @@ bool getRemoteButtonPress (int id, bool blocking)
 		}
 		if (blocking) SDL_Delay(10);
 	}
-
+	return ret;
 }
 #endif

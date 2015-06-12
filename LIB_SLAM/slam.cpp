@@ -179,6 +179,7 @@ void slam::setRegularization (float valx, float valy, float vala)
 void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 {
 	int ii, xpos, ypos, ind, x0, x1, y0, y1;
+	int cx, cy;
 	float tht, diff, dist, ang;
 
 	// error checking
@@ -192,19 +193,24 @@ void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 	slam_mutex.lock();
 	for (ii=0; ii<s->num; ii++)
 	{
-		xpos = (int)((s->dist[ii]*cos(s->angle[ii]+ang_val)+x_val)/scale + nx/2);
-		ypos = (int)((s->dist[ii]*sin(s->angle[ii]+ang_val)+y_val)/scale + ny/2);
-		if (withinBounds(xpos,ypos,0,nx-1,0,ny-1))
+		if (s->dist[ii] > SLAM_MINDIST)
 		{
-			map[xpos*ny+ypos] = 1.0;
+			xpos = (int)((s->dist[ii]*cos(s->angle[ii]+ang_val)+x_val)/scale + nx/2);
+			ypos = (int)((s->dist[ii]*sin(s->angle[ii]+ang_val)+y_val)/scale + ny/2);
+			if (withinBounds(xpos,ypos,0,nx-1,0,ny-1))
+			{
+				map[xpos*ny+ypos] = 1.0;
+			}
 		}
 	}
 
 	// decay map???
-	x0 = 0;
-	x1 = nx;
-	y0 = 0;
-	y1 = ny;
+	cx = currx/scale+nx/2;
+	cy = curry/scale+ny/2;
+	x0 = (int)max(cx-600./scale,0.);
+	x1 = (int)min(cx+600./scale,(double)nx);
+	y0 = (int)max(cy-600./scale,0.);
+	y1 = (int)min(cy+600./scale,(double)ny);
 	for (xpos=x0; xpos<x1; xpos++)
 	{
 		for (ypos=x0; ypos<y1; ypos++)
@@ -223,8 +229,8 @@ void slam::integrate (scan *s, float x_val, float y_val, float ang_val)
 					ind = ii;
 				}
 			}
-			if (dist < s->dist[ind])
-				map[xpos*ny+ypos] *= 0.90 + 0.1*dist/s->dist[ind];
+			if (dist < s->dist[ind] && s->dist[ind] > SLAM_MINDIST)
+				map[xpos*ny+ypos] *= 0.50 + 0.2*dist/s->dist[ind];
 		}
 	}
 
@@ -317,18 +323,21 @@ bool slam::step (scan *s, float x_guess, float y_guess, float ang_guess)
 		J[0] = 0.0; J[1] = 0.0; J[2] = 0.0;
 		for (ii=0; ii<s->num; ii++)
 		{
-			xind = (s->dist[ii]*cos(s->angle[ii]+aval)+xval)/scale + nx/2;
-			yind = (s->dist[ii]*sin(s->angle[ii]+aval)+yval)/scale + ny/2;
-			if (withinBounds(xind,yind,0,nx-1,0,ny-1))
+			if (s->dist[ii] > SLAM_MINDIST)
 			{
-				psi += map_filt[xind*ny+yind];
-				J[0] += map_dx[xind*ny+yind] + 2.*reg_a*(xval-x_guess);
-				J[1] += map_dy[xind*ny+yind] + 2.*reg_b*(yval-y_guess);
-				J[2] += -map_dx[xind*ny+yind]*s->dist[ii]*sin(s->angle[ii]+aval)/scale + 
-					map_dy[xind*ny+yind]*s->dist[ii]*cos(s->angle[ii]+aval)/scale
-					+ 2.*reg_c*(aval-ang_guess);
-			} else {
-				psi += 0.0; // far away
+				xind = (s->dist[ii]*cos(s->angle[ii]+aval)+xval)/scale + nx/2;
+				yind = (s->dist[ii]*sin(s->angle[ii]+aval)+yval)/scale + ny/2;
+				if (withinBounds(xind,yind,0,nx-1,0,ny-1))
+				{
+					psi += map_filt[xind*ny+yind];
+					J[0] += map_dx[xind*ny+yind] + 2.*reg_a*(xval-x_guess);
+					J[1] += map_dy[xind*ny+yind] + 2.*reg_b*(yval-y_guess);
+					J[2] += -map_dx[xind*ny+yind]*s->dist[ii]*sin(s->angle[ii]+aval)/scale + 
+						map_dy[xind*ny+yind]*s->dist[ii]*cos(s->angle[ii]+aval)/scale
+						+ 2.*reg_c*(aval-ang_guess);
+				} else {
+					psi += 0.0; // far away
+				}
 			}
 		}
 		// compute step
@@ -346,10 +355,13 @@ bool slam::step (scan *s, float x_guess, float y_guess, float ang_guess)
 			+ reg_c*pow(a_trial-ang_guess,2);
 		for (ii=0; ii<s->num; ii++)
 		{
-			xind = (s->dist[ii]*cos(s->angle[ii]+a_trial)+x_trial)/scale + nx/2;
-			yind = (s->dist[ii]*sin(s->angle[ii]+a_trial)+y_trial)/scale + ny/2;
-			if (withinBounds(xind,yind,0,nx-1,0,ny-1))
-				psi_trial += map_filt[xind*ny+yind];
+			if (s->dist[ii] > SLAM_MINDIST)
+			{
+				xind = (s->dist[ii]*cos(s->angle[ii]+a_trial)+x_trial)/scale + nx/2;
+				yind = (s->dist[ii]*sin(s->angle[ii]+a_trial)+y_trial)/scale + ny/2;
+				if (withinBounds(xind,yind,0,nx-1,0,ny-1))
+					psi_trial += map_filt[xind*ny+yind];
+			}
 		}
 //		cout << "psi " << psi << "  " << psi_trial << endl;
 		// redo step size (if necessary)

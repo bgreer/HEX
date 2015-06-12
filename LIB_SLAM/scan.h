@@ -3,6 +3,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <cmath>
+#include <iostream>
+
+using namespace std;
 
 class scan
 {
@@ -38,14 +41,16 @@ public:
 
 		// look for unmatched angles
 		numnew = s->num;
-		for (ii=0; ii<num; ii++)
+		for (ii=0; ii<s->num; ii++)
 		{
-			diff = 1e4;
-			for (ij=0; ij<s->num; ij++)
+			for (ij=0; ij<num; ij++)
 			{
-				diff = fabs(angle[ii] - s->angle[ij]);
+				diff = fabs(angle[ij] - s->angle[ii]);
 				if (diff < 0.004)
+				{
 					numnew --;
+					ij = num;
+				}
 			}
 		}
 		// we have angles from the new scan that could not be matched!
@@ -57,7 +62,7 @@ public:
 		ii = 0;
 		ij = 0;
 		ind = 0;
-		while (ii+ij < numnew+num)
+		while (ind < numnew+num)
 		{
 			// compare elements
 			if (fabs(angle[ii] - s->angle[ij]) < 0.004)
@@ -78,7 +83,7 @@ public:
 				newweight[ind] = s->weight[ij];
 				ij++;
 			}
-		ind++;
+			ind++;
 		}
 		// replace arrays
 		delete [] dist;
@@ -87,6 +92,7 @@ public:
 		dist = newdist;
 		angle = newangle;
 		weight = newweight;
+		num = numnew+num;
 	}
 
 	~scan ()

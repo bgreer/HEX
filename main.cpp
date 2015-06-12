@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 	double lastslam, lastscan, lastloop, lastnav;
 	float prevx, prevy, preva; // for slam guessi
 	float dx, dy, da;
-	bool quit;
+	bool quit, doslam;
 	uint32_t delaytime;
 	// commandline args
 	float reg_pos, reg_ang, grid_scale, init_x, init_y, init_ang;
@@ -57,6 +57,9 @@ int main(int argc, char *argv[])
 
 	// STEP 1: initialize classes
 	if (DEBUG) cout << "Initializing..." << endl;
+	hex.dr_xpos = init_x;
+	hex.dr_ypos = init_y;
+	hex.dr_ang = init_ang;
 	slammer.init(grid_size,grid_size,grid_scale);
 	slammer.currx = init_x;
 	slammer.curry = init_y;
@@ -152,23 +155,35 @@ int main(int argc, char *argv[])
 	// needs a few scans, but allow for user to keep scanning after that
 	if (DEBUG) cout << "Obtaining initial LIDAR map.." << endl;
 	if (DEBUG) cout << "Press Start to finish scanning." << endl;
+	usleep(500000);
 	scans = 0;
 	quit = false;
-	while (scans < 360 && !quit)
+	total_scan = NULL;
+	while (scans < 100 && !quit)
 	{
 		if ((lidar_scan=getLIDARData(&ser, true)) != NULL)
 		{
-			setLED(LED_BLUE, true);
-			slammer.integrate(lidar_scan, init_x, init_y, init_ang);
-			d = new data_chunk('I');
-			for (ii=0; ii<lidar_scan->num; ii++)
-			{
-				d->add(lidar_scan->angle[ii]);
-				d->add(lidar_scan->dist[ii]);
-			}
-			log.send(d);
+			if (total_scan == NULL)
+				total_scan = lidar_scan->copy();
+			else
+				total_scan->incorporate(lidar_scan);
 			delete lidar_scan;
-			setLED(LED_BLUE, false);
+
+			if (scans % 10 == 0 && scans > 0 && total_scan != NULL)
+			{
+				setLED(LED_BLUE, true);
+				slammer.integrate(total_scan, init_x, init_y, init_ang);
+				d = new data_chunk('I');
+				for (ii=0; ii<total_scan->num; ii++)
+				{
+					d->add(total_scan->angle[ii]);
+					d->add(total_scan->dist[ii]);
+				}
+				log.send(d);
+				delete total_scan;
+				total_scan = NULL;
+				setLED(LED_BLUE, false);
+			}
 			scans ++;
 		}
 #ifdef MANUAL
@@ -214,6 +229,7 @@ int main(int argc, char *argv[])
 	quit = false;
 	if (DEBUG) cout << "Running main loop." << endl;
 	lastloop = getTime();
+	total_scan = NULL;
 	while (!quit)
 	{
 		// increment time
@@ -238,8 +254,11 @@ int main(int argc, char *argv[])
 					total_scan->incorporate(lidar_scan);
 				delete lidar_scan;
 
-				if (getTime() - lastslam > 1.5)
+				doslam = false;
+				doslam = !slammer.computing;
+				if (getTime() - lastslam > 0.5 && doslam)
 				{
+					cout << "calling slam" << endl;
 					lastslam = getTime();
 					dx = hex.dr_xpos - prevx;
 					dy = hex.dr_ypos - prevy;
@@ -260,6 +279,7 @@ int main(int argc, char *argv[])
 					}
 					log.send(d);
 					delete total_scan;
+					total_scan = NULL;
 				}
 			}
 			lastscan = getTime();
