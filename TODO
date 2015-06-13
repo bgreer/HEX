@@ -1,6 +1,7 @@
 [ Ordered by approximate priority ]
 
 let autonav load waypoints from file
+check lidar parsing for invalid measurements
 longer autonav tests
 let logger find unique filename for log file
 write reconstruction code, takes log and plots what happened as animation
