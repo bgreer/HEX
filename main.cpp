@@ -258,7 +258,6 @@ int main(int argc, char *argv[])
 				doslam = !slammer.computing;
 				if (getTime() - lastslam > 0.5 && doslam)
 				{
-					cout << "calling slam" << endl;
 					lastslam = getTime();
 					dx = hex.dr_xpos - prevx;
 					dy = hex.dr_ypos - prevy;

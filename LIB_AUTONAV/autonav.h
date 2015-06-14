@@ -18,7 +18,7 @@
 #define DIST_POW 0.505
 
 // how much to weight the map
-#define MAP_WEIGHT 1.0
+#define MAP_WEIGHT 0.1
 
 // in cm
 #define AN_MIN_TARGET_DIST 20.0

@@ -1,6 +1,6 @@
 
 // are we compiling with manual control?
-#define MANUAL
+//#define MANUAL
 // print to stdout as well
 #define DEBUG 1
 

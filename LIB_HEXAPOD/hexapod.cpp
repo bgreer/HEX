@@ -7,7 +7,7 @@ void hexapod::step (float dt)
 	float cycletime, xpos, ypos, zpos, target[3];
 	float legraise;
 	float turn_dist, thtpos, rpos, maxdist;
-	float dist, tht0, turn_step;
+	float dist, tht0, turn_step, speed_step;
 
 	// clamp speed and turning, just in case
 	hexlock.lock();
@@ -19,15 +19,17 @@ void hexapod::step (float dt)
 	if (standheight > 2.0) standheight = 2.0;
 	
 	// make sure speed doesnt change too rapidly
-	smoothspeed = 0.95*smoothspeed + 0.05*speed;
+	speed_step = -(smoothspeed - speed);
+	if (speed_step > SPEED_SLEW*dt) speed_step = SPEED_SLEW*dt;
+	if (speed_step < -SPEED_SLEW*dt) speed_step = -SPEED_SLEW*dt;
+	smoothspeed += speed_step;
 	// cap the rate at which turning can change
-	/*
-	turn_step = (smoothturning - turning);
+	
+	turn_step = -(smoothturning - turning);
 	if (turn_step > TURN_SLEW*dt) turn_step = TURN_SLEW*dt;
 	if (turn_step < -TURN_SLEW*dt) turn_step = -TURN_SLEW*dt;
 	smoothturning += turn_step;
-	*/
-	smoothturning = 0.95*smoothturning + 0.05*turning;
+	
 	hexlock.unlock();
 
 	// to control walking, modify speed and turning

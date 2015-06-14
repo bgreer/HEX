@@ -20,7 +20,8 @@
 #define ANGEPS 0.01
 
 // in turning value per second
-#define TURN_SLEW 1.0
+#define TURN_SLEW 0.8
+#define SPEED_SLEW 0.4
 
 using namespace std;
 
