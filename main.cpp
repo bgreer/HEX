@@ -45,7 +45,10 @@ int main(int argc, char *argv[])
 
 	log.init("logfile", false); // log file
 	ser.init_old("/dev/ttymxc3", false); // serial comm with Due
-	
+
+	setLEDInput(LED_GREEN);
+	setLEDInput(LED_BLUE);
+	setLEDInput(LED_WHITE);
 	setLIDARSpin(&ser, false);
 	setLED(LED_GREEN, false);
 	setLED(LED_BLUE, false);

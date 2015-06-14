@@ -46,5 +46,6 @@ void enableServos (serial *ser);
 
 // monitor.cpp
 double getTime();
+void setLEDInput (uint8_t id);
 void setLED (uint8_t id, bool value);
 bool getButtonPress (uint8_t id, bool blocking);

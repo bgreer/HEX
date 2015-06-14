@@ -177,8 +177,8 @@ void lidar_parsePacket()
       lidar_strength[ii+pos_offset] = (uint16_t)lidar_packet[6+ii*4] + 
         (((uint16_t)(lidar_packet[7+ii*4]))<<8);
 
-//			if (invalid || strength_warning)
-//				lidar_dist[ii+pos_offset] = 0;
+			if (invalid || strength_warning)
+				lidar_dist[ii+pos_offset] = 0;
     }
   }
 }
@@ -221,7 +221,7 @@ void setup ()
 	lidar_packet_index = 0;
 	interror = 0.0;
 	currspeed = 0.0;
-	targetspeed = 320.0; // in units of 64th of an rpm (so 5 rpm)
+	targetspeed = 300.0; // in units of 64th of an rpm (so 5 rpm)
 	lastpidupdate = millis();
 	lidar_spinning = false;
 	lidar_index = 0;

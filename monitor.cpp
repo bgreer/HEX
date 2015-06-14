@@ -12,6 +12,18 @@ double getTime()
 }
 #endif
 
+void setLEDInput (uint8_t id)
+{
+	int fd;
+	char buf[128];
+	ssize_t ret;
+
+	sprintf(buf, "/sys/class/gpio/gpio%d/direction", id);
+	fd = open(buf, O_WRONLY);
+	ret = write(fd, "out", 3); 
+	close(fd);
+}
+
 void setLED (uint8_t id, bool value)
 {
 	int fd;
