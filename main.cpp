@@ -295,6 +295,8 @@ int main(int argc, char *argv[])
 		d2->add(slammer.currang);
 		log.send(d2);
 
+//		cout << slammer.currx << " " << slammer.curry << " " << slammer.currang << endl;
+
 		// main navigation commands:
 #ifdef MANUAL
 		// look for remote control commands

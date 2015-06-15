@@ -61,8 +61,11 @@ scan* getLIDARData (serial *ser, bool blocking)
 		if (blocking)
 		{
 			// wait for result
-			while ((recv = ser->recv('U', 0x02, false)) == NULL)
-				usleep(1000);
+			while ((recv = ser->recv('U', 0x02, true,0.5)) == NULL)
+				ser->send(pack, true);
+
+//			while ((recv = ser->recv('U', 0x02, false)) == NULL)
+//				usleep(1000);
 		} else {
 			// no immediate data, no blocking
 			// so no data updated

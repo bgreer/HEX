@@ -215,11 +215,12 @@ void serial::send (packet *pack, bool blocking)
 	}
 }
 
-packet* serial::recv (unsigned char tag, uint8_t tag2, bool blocking)
+packet* serial::recv (unsigned char tag, uint8_t tag2, bool blocking, double timeout)
 {
 	int ii, ind;
 	bool found = false;
 	packet *p = NULL;
+	double waittime;
 
 	do
 	{
@@ -239,7 +240,12 @@ packet* serial::recv (unsigned char tag, uint8_t tag2, bool blocking)
 			}
 		}
 		recv_queue_mutex.unlock();
-		if (!found && blocking) usleep(1000);
+		if (!found && blocking)
+		{
+			usleep(1000);
+			waittime += 0.001;
+			if (waittime > timeout) return NULL;
+		}
 	} while (!found && blocking);
 	return p;
 }
