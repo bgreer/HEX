@@ -237,7 +237,7 @@ void performRaceFinish (hexapod *hex, serial *ser)
 		dt = (getTime() - lasttime);
 		lasttime = getTime();
 		// oscillate once per second
-		hex->standheight = 2.0*cos((lasttime - inittime)*PI);
+		hex->standheight = 2.0*cos((lasttime - inittime)*2.*PI);
 		hex->step(dt);
 		// package positions
 		for (ii=0; ii<18; ii++)

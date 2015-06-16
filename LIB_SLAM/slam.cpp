@@ -111,7 +111,7 @@ void slam::init (int x, int y, float s)
 			r = sqrt(pow(ix-nx/2,2) + pow(iy-ny/2,2));
 			input[ix*ny+iy] = exp(-pow(r*scale/100.,2));
 			width = 50./scale;
-			input[ix*ny+iy] = width/(pow(r,1.5) + width);
+			input[ix*ny+iy] = width/(pow(r,2.0) + width);
 //			if (r > nx*0.1/2) input[ix*ny+iy] = 0;
 		}
 	}

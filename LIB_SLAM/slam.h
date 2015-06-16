@@ -19,7 +19,7 @@ using namespace std;
 #define PI 3.14159265359
 #endif
 #define SLAM_MAXITER 1000
-#define STEPTOL 1e-4
+#define STEPTOL 1e-5
 #define SLAM_MINDIST 10.0
 
 #define SLAM_THREADS

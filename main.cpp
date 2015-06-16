@@ -30,8 +30,9 @@ int main(int argc, char *argv[])
 	double time, lasttime, dt, lastdata;
 	double lastslam, lastscan, lastloop, lastnav;
 	float prevx, prevy, preva; // for slam guessi
-	float dx, dy, da;
-	bool quit, doslam;
+	float dx, dy, da, dx_nav, dy_nav, da_nav;
+	float prevx_nav, prevy_nav, preva_nav;
+	bool quit, doslam, win;
 	uint32_t delaytime;
 	// commandline args
 	float reg_pos, reg_ang, grid_scale, init_x, init_y, init_ang;
@@ -57,6 +58,9 @@ int main(int argc, char *argv[])
 	prevx = init_x;
 	prevy = init_y;
 	preva = init_ang;
+	prevx_nav = init_x;
+	prevy_nav = init_y;
+	preva_nav = init_ang;
 
 	// STEP 1: initialize classes
 	if (DEBUG) cout << "Initializing..." << endl;
@@ -77,8 +81,9 @@ int main(int argc, char *argv[])
 	if (waypoint_fname == "")
 	{
 		// dummy target 1m forward
-		nav.addTarget(init_x+100.0*cos(init_ang), 
-				init_y+100.*sin(init_ang), 10.0);
+		nav.addTarget(init_x+150.0*cos(init_ang), 
+				init_y+150.*sin(init_ang), 25.0);
+		nav.addTarget(0.0,0.0,25.0);
 	} else {
 		// load from file
 		nav.loadTargets(waypoint_fname);
@@ -161,6 +166,7 @@ int main(int argc, char *argv[])
 	usleep(500000);
 	scans = 0;
 	quit = false;
+	win = false;
 	total_scan = NULL;
 	while (scans < 100 && !quit)
 	{
@@ -240,10 +246,6 @@ int main(int argc, char *argv[])
 		time += dt;
 		lasttime = getTime();
 
-		// let hex library update internal variables
-		hex.step(dt);
-		// send updated servo positions to servo controller
-		sendServoPositions(&hex, &ser);
 
 		// get LIDAR scan and update SLAM
 		if (getTime() - lastscan > 0.02)
@@ -304,22 +306,41 @@ int main(int argc, char *argv[])
 				&(hex.standheight));
 #else
 		// use autonav to decide motion
-		if (getTime() - lastnav > 0.2)
+		if (getTime() - lastnav > 1.0)
 		{
 			// use autonav to set hexapod speed and turning
-			nav.solve(slammer.currx, slammer.curry, slammer.currang);
+			nav.solve(slammer.currx+dx, slammer.curry+dy, slammer.currang+da);
 			lastnav = getTime();
+		} else {
+			dx_nav = hex.dr_xpos - prevx_nav;
+			dy_nav = hex.dr_ypos - prevy_nav;
+			da_nav = hex.dr_ang - preva_nav;
+			prevx_nav = hex.dr_xpos;
+			prevy_nav = hex.dr_ypos;
+			preva_nav = hex.dr_ang;
+			nav.cx += dx_nav;
+			nav.cy += dy_nav;
+			nav.ca += da_nav;
+			nav.setHeading();
 		}
 		// check for end of target list
 		nav.anlock.lock();
 		if (nav.currtarget == nav.target_x.size())
 		{
-			performRaceFinish(&hex, &ser);
 			quit = true;
+			win = true;
+		} else {
+			quit = getButtonPress(BUTTON_4, false);
 		}
 		nav.anlock.unlock();
-		quit = getButtonPress(BUTTON_4, false);
 #endif
+
+		// let hex library update internal variables
+		hex.step(dt);
+
+		cout << "TURNING " <<getTime() << " "<< hex.smoothturning << endl;
+		// send updated servo positions to servo controller
+		sendServoPositions(&hex, &ser);
 
 
 		// main loop delay
@@ -335,6 +356,9 @@ int main(int argc, char *argv[])
 	slammer.close();
 	nav.close();
 	setLIDARSpin(&ser, false); // tell Due to stop the LIDAR motor
+#ifndef MANUAL
+	if (win) performRaceFinish(&hex, &ser);
+#endif
 	disableServos(&ser); // set servos to disabled (no torque)
 	ser.close(); // close serial port
 	log.close(); // finish logging, close log file

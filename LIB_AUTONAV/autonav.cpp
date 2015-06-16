@@ -5,7 +5,6 @@ void autonav_loop (autonav *an)
 	int ii, ind, dx, dy;
 	float cx, cy, ca; // current position
 	float ctx, cty, ctr; // current target
-	float close_x, close_y;
 	float heading, dang, scale, newscore, minf;
 	float *localmap;
 	int nx, ny, x0, y0, xt, yt;
@@ -132,8 +131,8 @@ void autonav_loop (autonav *an)
 			// and pick local target to aim at
 			thisnode = openset[ind];
 			path.push_back(thisnode);
-			close_x = (thisnode->xpos-nx/2)*scale;
-			close_y = (thisnode->ypos-ny/2)*scale;
+			an->close_x = (thisnode->xpos-nx/2)*scale;
+			an->close_y = (thisnode->ypos-ny/2)*scale;
 			d = new data_chunk('A');
 			while (thisnode->xpos != x0 || thisnode->ypos != y0)
 			{
@@ -144,8 +143,8 @@ void autonav_loop (autonav *an)
 				if (sqrt(pow(thisnode->xpos-x0,2)+pow(thisnode->ypos-y0,2))*scale
 						> AN_MIN_TARGET_DIST)
 				{
-					close_x = (thisnode->xpos-nx/2)*scale;
-					close_y = (thisnode->ypos-ny/2)*scale;
+					an->close_x = (thisnode->xpos-nx/2)*scale;
+					an->close_y = (thisnode->ypos-ny/2)*scale;
 				}
 			}
 			an->log->send(d);
@@ -160,24 +159,33 @@ void autonav_loop (autonav *an)
 			path.erase(path.begin(), path.end());
 			
 			// set hexapod speed and turning
-			heading = atan2(close_y-cy, close_x-cx);
-			dang = heading - ca;
-			if (dang < -PI) dang += 2.*PI;
-			if (dang > PI) dang -= 2.*PI;
-
-			an->hex->hexlock.lock();
-			an->hex->speed = 0.3;
-			if (fabs(dang) > 0.05)
-				an->hex->turning = 5.*dang/PI;
-			else
-				an->hex->turning = 0.0;
-			an->hex->hexlock.unlock();
+			an->setHeading();
 		} else {
 			usleep(10000);
 		}
 	}
 
 	delete [] localmap;
+}
+
+void autonav::setHeading ()
+{
+	float heading, dang;
+
+	heading = atan2(close_y-cy, close_x-cx);
+	dang = heading - ca;
+	while (dang < -PI) dang += 2.*PI;
+	while (dang > PI) dang -= 2.*PI;
+
+	hex->hexlock.lock();
+	hex->speed = 0.3;
+	if (fabs(dang) > 0.05)
+		hex->turning = 2.*dang/PI;
+	else
+		hex->turning = 0.0;
+	if (hex->turning > 0.9) hex->turning = 0.9;
+	if (hex->turning < -0.9) hex->turning = -0.9;
+	hex->hexlock.unlock();
 }
 
 autonav::autonav ()

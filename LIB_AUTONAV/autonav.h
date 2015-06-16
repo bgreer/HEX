@@ -18,7 +18,7 @@
 #define DIST_POW 0.505
 
 // how much to weight the map
-#define MAP_WEIGHT 0.0
+#define MAP_WEIGHT 3.0
 
 // in cm
 #define AN_MIN_TARGET_DIST 20.0
@@ -45,6 +45,7 @@ class autonav
 public:
 	// targets:
 	int currtarget;
+	float close_x, close_y;
 	double currtarget_time; // how much time we've spent at the current target
 	vector<float> target_x, target_y, target_r;
 	double lastsolve;
@@ -65,6 +66,7 @@ public:
 	void loadTargets(string fname);
 	void solve(float currx, float curry, float currang);
 	void close();
+	void setHeading ();
 };
 
 double getTime();

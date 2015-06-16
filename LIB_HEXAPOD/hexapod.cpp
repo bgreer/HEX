@@ -29,6 +29,7 @@ void hexapod::step (float dt)
 	if (turn_step > TURN_SLEW*dt) turn_step = TURN_SLEW*dt;
 	if (turn_step < -TURN_SLEW*dt) turn_step = -TURN_SLEW*dt;
 	smoothturning += turn_step;
+
 	
 	hexlock.unlock();
 
