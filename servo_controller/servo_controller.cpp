@@ -215,8 +215,6 @@ void setup ()
 		servo[ii]->setReturnLevel(1);
 		// delay 10us between commands
 		servo[ii]->setReturnDelay(10);
-		// make local delay the same
-		servo[ii]->SERVO_DELAY = 10;
 	}
 
 	chksum_good = 0;

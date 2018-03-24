@@ -1,5 +1,6 @@
 
 BASEDIR = /home/bgreer/PROJECTS/HEX
+AXSERVODIR = $(BASEDIR)/LIB_AXSERVO
 SERIALDIR = $(BASEDIR)/LIB_SERIAL
 PACKETDIR = $(BASEDIR)/LIB_PACKET
 HEXAPODDIR = $(BASEDIR)/LIB_HEXAPOD
@@ -7,12 +8,17 @@ SLAMDIR = $(BASEDIR)/LIB_SLAM
 LOGGERDIR = $(BASEDIR)/LIB_LOGGER
 NAVDIR = $(BASEDIR)/LIB_AUTONAV
 
+### TOOLS
+CPP = /usr/share/arduino/hardware/tools/avr/bin/avr-g++
+OBJCOPY = /usr/share/arduino/hardware/tools/avr/bin/avr-objcopy
+AVRDUDE = /usr/share/arduino/hardware/tools/avrdude
+
+
 SERVODIR = $(BASEDIR)/servo_controller
-ARBOTIX_COMPILER = /usr/share/arduino/hardware/tools/avr/bin/avr-g++
 ARBOTIX_FLAGS = -std=gnu++11 -c -g -Os -Wall -fno-exceptions -ffunction-sections -fdata-sections -mmcu=atmega644p -DF_CPU=16000000L -MMD -DUSB_VID=null -DUSB_PID=null -DARDUINO=105 -D__PROG_TYPES_COMPAT__
 ARBOTIX_INCLUDE = -I/home/bgreer/sketchbook/hardware/arbotix/cores/arbotix -I/home/bgreer/sketchbook/hardware/arbotix/variants/standard -I/home/bgreer/sketchbook/libraries/Bioloid
-ARBOTIX_COMPILE = $(ARBOTIX_COMPILER) $(ARBOTIX_FLAGS) $(ARBOTIX_INCLUDE)
-ARBOTIX_LINK = $(ARBOTIX_COMPILER)
+ARBOTIX_COMPILE = $(CPP) $(ARBOTIX_FLAGS) $(ARBOTIX_INCLUDE)
+ARBOTIX_LINK = $(CPP)
 
 SERIAL = $(SERIALDIR)/serial.cpp $(SERIALDIR)/serial.h
 PACKET = $(PACKETDIR)/packet.cpp $(PACKETDIR)/packet.h
@@ -36,11 +42,14 @@ bioloid :
 packet :
 	$(ARBOTIX_COMPILE) $(PACKETDIR)/*.c*
 
-scontrol : $(SERVODIR)/*.cpp arbotix_core bioloid packet
+axservo : $(AXSERVODIR)/*.cpp $(AXSERVODIR)/*.h
+	$(ARBOTIX_COMPILE) $(AXSERVODIR)/*.c*
+
+scontrol : $(SERVODIR)/*.cpp arbotix_core bioloid packet axservo
 	$(ARBOTIX_COMPILE) $(SERVODIR)/*.cpp 
-	$(ARBOTIX_COMPILER) -Os -Wl,--gc-sections -mmcu=atmega644p -o scontrol.elf servo_controller.o core.a -lm
-	/usr/share/arduino/hardware/tools/avr/bin/avr-objcopy -O ihex -j .eeprom --set-section-flags=.eeprom=alloc,load --no-change-warnings --change-section-lma .eeprom=0 scontrol.elf scontrol.eep 
-	/usr/share/arduino/hardware/tools/avr/bin/avr-objcopy -O ihex -R .eeprom scontrol.elf scontrol.hex
+	$(CPP) -Os -Wl,--gc-sections -mmcu=atmega644p -o scontrol.elf servo_controller.o core.a -lm
+	$(objcopy) -O ihex -j .eeprom --set-section-flags=.eeprom=alloc,load --no-change-warnings --change-section-lma .eeprom=0 scontrol.elf scontrol.eep 
+	$(objcopy) -O ihex -R .eeprom scontrol.elf scontrol.hex
 	rm *.d *.o
 
 upload : scontrol
