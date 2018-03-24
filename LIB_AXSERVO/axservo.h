@@ -88,6 +88,20 @@ public:
 		delayMicroseconds(SERVO_DELAY);
 		ax12SetRegister(id,AX_CCW_COMPLIANCE_SLOPE,ccw);
 	}
+    void setComplianceMargins (int cw, int ccw)
+    {
+		int temp;
+		if (reverse)
+		{
+			temp = cw;
+			cw = ccw;
+			ccw = temp;
+		}
+		delayMicroseconds(SERVO_DELAY);
+		ax12SetRegister(id,AX_CW_COMPLIANCE_MARGIN,cw);
+		delayMicroseconds(SERVO_DELAY);
+		ax12SetRegister(id,AX_CCW_COMPLIANCE_MARGIN,ccw);
+    }
 
 	uint8_t getError ()
 	{

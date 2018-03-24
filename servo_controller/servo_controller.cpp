@@ -188,8 +188,6 @@ void setup ()
 	Serial.setTimeout(1);
 	randomSeed(analogRead(0));
 
-    pinMode(0,OUTPUT);
-
 	ax12Init(1000000);
 
 	// because 1) i dont like the default servo positions
@@ -206,7 +204,8 @@ void setup ()
 	{
 		servo[ii] = new axservo(idmap[ii]);
 		// for nice smooth motion
-		servo[ii]->setComplianceSlopes(64,64);
+		servo[ii]->setComplianceSlopes(32, 32);
+        servo[ii]->setComplianceMargins(32, 32);
 		// half the body is reversed
 		if (ii<9 && !(ii%3==0)) servo[ii]->reverse = true;
 		// keep servos slack
