@@ -188,6 +188,8 @@ void setup ()
 	Serial.setTimeout(1);
 	randomSeed(analogRead(0));
 
+    pinMode(0,OUTPUT);
+
 	ax12Init(1000000);
 
 	// because 1) i dont like the default servo positions
@@ -300,6 +302,5 @@ void loop ()
 			}
 		}
 	}
-	
 	delay(LOOP_DELAY);
 }
