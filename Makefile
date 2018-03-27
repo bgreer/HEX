@@ -48,12 +48,12 @@ axservo : $(AXSERVODIR)/*.cpp $(AXSERVODIR)/*.h
 scontrol : $(SERVODIR)/*.cpp arbotix_core bioloid packet axservo
 	$(ARBOTIX_COMPILE) $(SERVODIR)/*.cpp 
 	$(CPP) -Os -Wl,--gc-sections -mmcu=atmega644p -o scontrol.elf servo_controller.o core.a -lm
-	$(objcopy) -O ihex -j .eeprom --set-section-flags=.eeprom=alloc,load --no-change-warnings --change-section-lma .eeprom=0 scontrol.elf scontrol.eep 
-	$(objcopy) -O ihex -R .eeprom scontrol.elf scontrol.hex
+	$(OBJCOPY) -O ihex -j .eeprom --set-section-flags=.eeprom=alloc,load --no-change-warnings --change-section-lma .eeprom=0 scontrol.elf scontrol.eep 
+	$(OBJCOPY) -O ihex -R .eeprom scontrol.elf scontrol.hex
 	rm *.d *.o
 
 upload : scontrol
-	/usr/share/arduino/hardware/tools/avrdude -C/usr/share/arduino/hardware/tools/avrdude.conf -v -v -v -v -patmega644p -carduino -P/dev/ttyUSB0 -b38400 -D -Uflash:w:scontrol.hex:i
+	$(AVRDUDE) -C/usr/share/arduino/hardware/tools/avrdude.conf -v -v -v -v -patmega644p -carduino -P/dev/ttyUSB0 -b38400 -D -Uflash:w:scontrol.hex:i
 
 # this needs to be cleaned up
 hex : main.cpp manual.cpp actions.cpp monitor.cpp serial.o packet.o hexapod.o logger.o slam.o autonav.o header.h

@@ -1,5 +1,5 @@
 #include <ax12.h>
-#include "/home/bgreer/PROJECTS/HEX/LIB_AXSERVO/axservo.h"
+#include "/home/bgreer/PROJECTS/HEX/LIB_AXSERVO/AXServo.h"
 #include "/home/bgreer/PROJECTS/HEX/LIB_PACKET/packet.h"
 
 // TARGET: Arbotix-M controller
@@ -35,8 +35,29 @@
  * 	tibia: 215 - 40
  */
 
-axservo *servo[NUM_SERVOS];
-int idmap[NUM_SERVOS];
+AXServo *servo[NUM_SERVOS];
+const uint8_t servo_id[NUM_SERVOS] = {
+        1, 3, 5,
+        13, 15, 17,
+        7, 9, 11,
+        2, 4, 18,
+        14, 16, 12,
+        8, 10, 6};
+const bool servo_reversed[NUM_SERVOS] = {
+        false, true, true,
+        false, true, true,
+        false, true, true,
+        false, false, false,
+        false, false, false,
+        false, false, false};
+const float servo_pos_standing[NUM_SERVOS] = {
+        160, 220, 50,
+        160, 220, 50,
+        160, 220, 50,
+        160, 220, 50,
+        160, 220, 50,
+        160, 220, 50
+};
 
 packet *currpacket;
 int packetstart, headercount, psize, dsize, packetind;
@@ -180,56 +201,67 @@ void parsePacket ()
 	}
 }
 
-void setup ()
-{
-	int ii;
-	unsigned char trash;
-	Serial.begin(115200);
-	Serial.setTimeout(1);
-	randomSeed(analogRead(0));
-
-	ax12Init(1000000);
-
-	// because 1) i dont like the default servo positions
-	// and 2) i messed them up anyways
-	// remap here.
-	idmap[0] = 1; idmap[1] = 3; idmap[2] = 5;
-	idmap[3] = 13; idmap[4] = 15; idmap[5] = 17;
-	idmap[6] = 7; idmap[7] = 9; idmap[8] = 11;
-	idmap[9] = 2; idmap[10] = 4; idmap[11] = 18;
-	idmap[12] = 14; idmap[13] = 16; idmap[14] = 12;
-	idmap[15] = 8; idmap[16] = 10; idmap[17] = 6;
-
-	for (ii=0; ii<NUM_SERVOS; ii++)
-	{
-		servo[ii] = new axservo(idmap[ii]);
-		// for nice smooth motion
-		servo[ii]->setComplianceSlopes(32, 32);
-        servo[ii]->setComplianceMargins(32, 32);
-		// half the body is reversed
-		if (ii<9 && !(ii%3==0)) servo[ii]->reverse = true;
-		// keep servos slack
-		servo[ii]->setTorqueEnable(false);
-		// set servos to 'fast' mode
-		// only ack when asked to
-		servo[ii]->setReturnLevel(1);
-		// delay 10us between commands
-		servo[ii]->setReturnDelay(10);
-	}
-
-	chksum_good = 0;
-	chksum_bad = 0;
-	packetstart = 0;
-	packetloading = false;
-	delay(50); // pause for good measure
-	// setup done, ready to act
+void setupDelay(int numSecs) {
+    Serial.begin(115200);
+    Serial.setTimeout(1);
+    randomSeed(analogRead(0));
+    for (int i = 0; i < numSecs; i++) {
+        Serial.print("Program starting in ");
+        Serial.println(numSecs-i);
+        delay(1000);
+    }
 }
 
+void setup ()
+{
+    int ii;
+    setupDelay(0);
+    randomSeed(analogRead(0));
+
+    ax12Init(1000000);
+
+    for (ii=0; ii<NUM_SERVOS; ii++)
+    {
+        servo[ii] = new AXServo(servo_id[ii], servo_reversed[ii]);
+        // for nice smooth motion
+        servo[ii]->setComplianceSlopes(32, 32);
+        servo[ii]->setComplianceMargins(2, 2);
+        // keep servos slack
+        servo[ii]->setTorqueEnable(true);
+        // set servos to 'fast' mode
+        // only ack when asked to
+        servo[ii]->setReturnLevel(1);
+        // delay 10us between commands
+        servo[ii]->setReturnDelay(10);
+
+        Serial.print("Done with servo ");
+        Serial.println(ii);
+        delay(50);
+        servo[ii]->setPosition(servo_pos_standing[ii]);
+    }
+
+    chksum_good = 0;
+    chksum_bad = 0;
+    packetstart = 0;
+    packetloading = false;
+    delay(50); // pause for good measure
+    // setup done, ready to act
+}
+
+// Main Arduino loop
 void loop ()
 {
-	int ii, nbytes, num;
+	int ii, nbytes;
 	unsigned char inByte;
-	unsigned long t0, t1;
+
+    for (int i=0; i<NUM_SERVOS; i++)
+    {
+        Serial.print(i);
+        Serial.print(" - ");
+        Serial.println(servo[i]->getTemperature());
+        delay(1);
+    }
+    delay(1000);
 
 	// listen for packets
 	nbytes = 0;
