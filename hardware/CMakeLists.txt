@@ -11,8 +11,9 @@ SET(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS)
 SET(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS)
 set(CMAKE_CXX_COMPILER avr-g++)
 set(CMAKE_C_COMPILER avr-gcc)
-set(AR /usr/share/arduino/hardware/tools/avr/bin/avr-ar)
-
+set(CMAKE_AR avr-ar)
+SET(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> rcs <TARGET> <LINK_FLAGS> <OBJECTS>")
+SET(CMAKE_C_ARCHIVE_CREATE "<CMAKE_AR> rcs <TARGET> <LINK_FLAGS> <OBJECTS>")
 
 add_library(core STATIC ${core_sources})
 
