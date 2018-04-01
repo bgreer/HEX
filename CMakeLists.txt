@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 2.8) # setting this is required
-project(example_project)            # this sets the project name
+cmake_minimum_required(VERSION 2.8)
+project(HEX)
 
 ###############################################################################
 ## file globbing ##############################################################
@@ -19,6 +19,8 @@ file(GLOB_RECURSE sources      servo_controller/*.cpp servo_controller/*.h)
 # The data is just added to the executable, because in some IDEs (QtCreator) 
 # files are invisible when they are not explicitly part of the project.
 add_executable(scontrol ${sources})
+
+add_subdirectory()
 
 #CPP = /usr/share/arduino/hardware/tools/avr/bin/avr-g++
 #OBJCOPY = /usr/share/arduino/hardware/tools/avr/bin/avr-objcopy

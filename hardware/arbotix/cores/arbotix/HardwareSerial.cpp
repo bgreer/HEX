@@ -130,8 +130,8 @@ inline void store_char(unsigned char c, ring_buffer *buffer)
   //  unsigned char c = UDR1;
   //  store_char(c, &rx_buffer1);
   //}
-#elif defined(SIG_USART1_RECV)
-  #error SIG_USART1_RECV
+//#elif defined(SIG_USART1_RECV)
+//  #error SIG_USART1_RECV
 #endif
 
 #if defined(USART2_RX_vect) && defined(UDR2)

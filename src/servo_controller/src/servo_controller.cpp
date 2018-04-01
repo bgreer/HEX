@@ -1,6 +1,6 @@
 #include <ax12.h>
-#include "/home/bgreer/PROJECTS/HEX/LIB_AXSERVO/AXServo.h"
-#include "/home/bgreer/PROJECTS/HEX/LIB_PACKET/packet.h"
+#include "AXServo.h"
+#include "packet.h"
 
 // TARGET: Arbotix-M controller
 // the theme for communication here is:
@@ -35,7 +35,7 @@
  * 	tibia: 215 - 40
  */
 
-AXServo *servo[NUM_SERVOS];
+axservo *servo[NUM_SERVOS];
 const uint8_t servo_id[NUM_SERVOS] = {
         1, 3, 5,
         13, 15, 17,
@@ -222,10 +222,11 @@ void setup ()
 
     for (ii=0; ii<NUM_SERVOS; ii++)
     {
-        servo[ii] = new AXServo(servo_id[ii], servo_reversed[ii]);
+//        servo[ii] = new AXServo(servo_id[ii], servo_reversed[ii]);
+        servo[ii] = new axservo(servo_id[ii]);
         // for nice smooth motion
         servo[ii]->setComplianceSlopes(32, 32);
-        servo[ii]->setComplianceMargins(2, 2);
+//        servo[ii]->setComplianceMargins(2, 2);
         // keep servos slack
         servo[ii]->setTorqueEnable(true);
         // set servos to 'fast' mode
